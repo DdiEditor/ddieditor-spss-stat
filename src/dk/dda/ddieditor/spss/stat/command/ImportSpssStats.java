@@ -26,7 +26,7 @@ public class ImportSpssStats extends org.eclipse.core.commands.AbstractHandler {
 		if (returnCode != Window.CANCEL) {
 			// import
 			SpssStatsImportRunnable longJob = new SpssStatsImportRunnable(
-					statsWizard.selectedResource, statsWizard.outOxmlFile);
+					statsWizard.selectedResource, statsWizard.inOxmlFile);
 			BusyIndicator.showWhile(PlatformUI.getWorkbench().getDisplay(),
 					longJob);
 

@@ -32,7 +32,7 @@ public class SpssStatsWizard extends Wizard {
 	private List<DDIResourceType> resources = null;
 
 	public DDIResourceType selectedResource = null;
-	public String outOxmlFile = null;
+	public String inOxmlFile = null;
 
 	@Override
 	public boolean performFinish() {
@@ -54,7 +54,7 @@ public class SpssStatsWizard extends Wizard {
 		}
 
 		void pageComplete() {
-			if (outOxmlFile != null && selectedResource != null) {
+			if (inOxmlFile != null && selectedResource != null) {
 				setPageComplete(true);
 			}
 		}
@@ -74,7 +74,7 @@ public class SpssStatsWizard extends Wizard {
 				public void keyReleased(KeyEvent e) {
 					// on a CR - check if file exist and read it
 					if (e.keyCode == SWT.CR) {
-						outOxmlFile = readFile(pathText);
+						inOxmlFile = readFile(pathText);
 					}
 				}
 			});
@@ -84,8 +84,8 @@ public class SpssStatsWizard extends Wizard {
 					switch (e.detail) {
 					case SWT.TRAVERSE_TAB_NEXT:
 					case SWT.TRAVERSE_TAB_PREVIOUS: {
-						outOxmlFile = readFile(pathText);
-						if (outOxmlFile == null) {
+						inOxmlFile = readFile(pathText);
+						if (inOxmlFile == null) {
 							e.doit = false;
 						}
 					}
@@ -101,15 +101,18 @@ public class SpssStatsWizard extends Wizard {
 							.getWorkbench().getDisplay().getActiveShell());
 					fileChooser.setText(Translator
 							.trans("spss.filechooser.title"));
-					fileChooser.setFilterExtensions(new String[] { "*.sav" });
-					fileChooser.setFilterNames(new String[] { Translator
-							.trans("spss.filechooser.filternames") });
-					
-					PreferenceUtil.setPathFilter(fileChooser);
-					outOxmlFile = fileChooser.open();
-					PreferenceUtil.setLastBrowsedPath(outOxmlFile);
+					fileChooser.setFilterExtensions(new String[] { "*.xml",
+							"*.*" });
+					fileChooser.setFilterNames(new String[] {
+							Translator
+									.trans("spssstat.filechooser.filternames"),
+							Translator.trans("spssstat.filternames.anyfile") });
 
-					pathText.setText(outOxmlFile);
+					PreferenceUtil.setPathFilter(fileChooser);
+					inOxmlFile = fileChooser.open();
+					PreferenceUtil.setLastBrowsedPath(inOxmlFile);
+
+					pathText.setText(inOxmlFile);
 					pageComplete();
 				}
 
@@ -159,7 +162,7 @@ public class SpssStatsWizard extends Wizard {
 			setControl(group);
 			setPageComplete(false);
 		}
-		
+
 		private String readFile(Text pathText) {
 			if (!new File(pathText.getText()).exists()) {
 				MessageDialog
