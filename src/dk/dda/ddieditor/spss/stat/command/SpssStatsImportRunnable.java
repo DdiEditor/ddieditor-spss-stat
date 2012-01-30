@@ -2,12 +2,17 @@ package dk.dda.ddieditor.spss.stat.command;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Formatter;
 import java.util.List;
 import java.util.Map.Entry;
 
 import javax.xml.parsers.SAXParserFactory;
 
+import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.StatisticsDocument;
+import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.StatisticsType;
+import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.VariableStatisticsDocument;
+import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.VariableStatisticsType;
 import org.ddialliance.ddieditor.model.DdiManager;
 import org.ddialliance.ddieditor.model.resource.DDIResourceType;
 import org.ddialliance.ddieditor.persistenceaccess.PersistenceManager;
@@ -26,6 +31,8 @@ public class SpssStatsImportRunnable implements Runnable {
 	public String inOxmlFile = null;
 	public String omsFreqQueryFunction;
 
+	List<VariableStatisticsType> variableStatistics = new ArrayList<VariableStatisticsType>();
+
 	public SpssStatsImportRunnable(DDIResourceType selectedResource,
 			String inOxmlFile) {
 		super();
@@ -40,6 +47,13 @@ public class SpssStatsImportRunnable implements Runnable {
 		q.append(" where $x/@subType=$type and $x/@varName=$varname");
 		q.append(" return $x};");
 		omsFreqQueryFunction = q.toString();
+
+		VariableStatisticsDocument varStatDoc = VariableStatisticsDocument.Factory
+				.newInstance();
+		VariableStatisticsType varStatType = varStatDoc
+				.addNewVariableStatistics();
+		varStatType.addNewVariableReference();
+		varStatType.addNewCategoryStatistics();
 	}
 
 	@Override
@@ -55,7 +69,8 @@ public class SpssStatsImportRunnable implements Runnable {
 		// query ddi vars varname, id version agency
 		// String queryResult =
 		// "<IdElement id=\"id\" version=\"version\" agency=\"agency\" name=\"name\"/>";
-		PersistenceManager.getInstance().setWorkingResource(this.selectedResource.getOrgName());
+		PersistenceManager.getInstance().setWorkingResource(
+				this.selectedResource.getOrgName());
 		String queryResult = DdiManager.getInstance().getVariableShort();
 
 		// map up result by varname
@@ -86,7 +101,7 @@ public class SpssStatsImportRunnable implements Runnable {
 			}
 			PivotTableDocument pivotTableDoc = PivotTableDocument.Factory
 					.parse(pivotXml);
-			System.out.println(pivotTableDoc.getPivotTable().getVarName());
+
 			// create ddi
 			// http://xmlbeans.apache.org/docs/2.0.0/guide/conSelectingXMLwithXQueryPathXPath.html
 		}
@@ -107,12 +122,22 @@ public class SpssStatsImportRunnable implements Runnable {
 		formatter.format(
 				"ddieditor:getPivotTable(\"%1$s\", \"Frequencies\", \"%2$s\")",
 				doc.substring(5, doc.length() - 2), variableName);
-		
+
 		List<String> result = PersistenceManager.getInstance()
 				.getPersistenceStorage()
 				.query(omsFreqQueryFunction + formatter.toString());
 
 		formatter.close();
 		return result.isEmpty() ? "" : result.get(0);
+	}
+
+	private void storeDdi() {
+		StatisticsDocument statsDoc = StatisticsDocument.Factory.newInstance();
+		StatisticsType statsType = statsDoc.addNewStatistics();
+		statsType.setVariableStatisticsArray(variableStatistics
+				.toArray(new VariableStatisticsType[] {}));
+		
+		// insert into persistence storage
+		//DdiManager.getInstance().
 	}
 }
