@@ -1,19 +1,19 @@
 package dk.dda.ddieditor.spss.stat.idelement;
 
-
 public class IdElement {
 	public enum RepresentationType {
 		CODE("Code"), DATA_TIME("DateTime"), EXTERNAL_CATEGORY(
-				"ExternalCategory"), NUMERIC("Numeric"), TEXT("TEXT");
+				"ExternalCategory"), NUMERIC("Numeric"), TEXT("Text");
 		private String xmlRep;
 
 		private RepresentationType(String xmlRep) {
 			this.xmlRep = xmlRep;
 		}
-		
+
 		public static RepresentationType getRepresentationType(String xmlRep) {
 			for (int i = 0; i < RepresentationType.values().length; i++) {
-				RepresentationType namespacePrefix = RepresentationType.values()[i];
+				RepresentationType namespacePrefix = RepresentationType
+						.values()[i];
 				if (namespacePrefix.xmlRep.equals(xmlRep)) {
 					return namespacePrefix;
 				}
@@ -24,16 +24,18 @@ public class IdElement {
 
 	String id, version, name, agency;
 	RepresentationType representationType;
-	
-	public IdElement(String id, String version, String agency, String name, String repType) {
+
+	public IdElement(String id, String version, String agency, String name,
+			String repType) {
 		super();
 		this.id = id;
 		this.version = version;
 		this.name = name;
 		this.agency = agency;
-		this.representationType = RepresentationType.getRepresentationType(repType);
+		this.representationType = RepresentationType
+				.getRepresentationType(repType);
 	}
-	
+
 	public String getId() {
 		return id;
 	}
@@ -64,6 +66,14 @@ public class IdElement {
 
 	public void setAgency(String agency) {
 		this.agency = agency;
+	}
+
+	public RepresentationType getRepresentationType() {
+		return representationType;
+	}
+
+	public void setRepresentationType(RepresentationType representationType) {
+		this.representationType = representationType;
 	}
 
 	@Override

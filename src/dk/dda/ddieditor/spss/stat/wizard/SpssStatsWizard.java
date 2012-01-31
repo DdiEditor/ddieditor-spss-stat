@@ -50,7 +50,7 @@ public class SpssStatsWizard extends Wizard {
 		public static final String PAGE_NAME = "select";
 
 		public SelectPage() {
-			super(PAGE_NAME, Translator.trans("spssstat.range.title"), null);
+			super(PAGE_NAME, Translator.trans("spssstat.wizard.title"), null);
 		}
 
 		void pageComplete() {
@@ -63,11 +63,11 @@ public class SpssStatsWizard extends Wizard {
 		public void createControl(Composite parent) {
 			final Editor editor = new Editor();
 			Group group = editor.createGroup(parent,
-					Translator.trans("spssstat.range.title"));
+					Translator.trans("spssstat.wizard.title"));
 
 			// spss file
 			editor.createLabel(group,
-					Translator.trans("spss.filechooser.title"));
+					Translator.trans("spssstat.filechooser.title"));
 			final Text pathText = editor.createText(group, "");
 			pathText.addKeyListener(new KeyAdapter() {
 				@Override
@@ -100,12 +100,12 @@ public class SpssStatsWizard extends Wizard {
 					FileDialog fileChooser = new FileDialog(PlatformUI
 							.getWorkbench().getDisplay().getActiveShell());
 					fileChooser.setText(Translator
-							.trans("spss.filechooser.title"));
+							.trans("spssstat.filechooser.title"));
 					fileChooser.setFilterExtensions(new String[] { "*.xml",
 							"*.*" });
 					fileChooser.setFilterNames(new String[] {
 							Translator
-									.trans("spssstat.filechooser.filternames"),
+									.trans("spssstat.filternames.spssoxml"),
 							Translator.trans("spssstat.filternames.anyfile") });
 
 					PreferenceUtil.setPathFilter(fileChooser);

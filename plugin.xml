@@ -16,7 +16,7 @@
             locationURI="menu:filemenu-importmenu?after=merge-ddi">
          <command
                commandId="dk.dda.ddieditor.spss.stat.command.ImportSpssStats"
-               label="Import SPSS Stats"
+               label="SPSS Statistics"
                style="push">
          </command>
       </menuContribution>
