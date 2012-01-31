@@ -3,6 +3,7 @@ package dk.dda.ddieditor.spss.stat.command;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.util.ArrayList;
@@ -12,6 +13,7 @@ import java.util.Map.Entry;
 
 import javax.xml.parsers.SAXParserFactory;
 
+import org.apache.xmlbeans.XmlObject;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticType;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticTypeCodedDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticTypeCodedType;
@@ -19,6 +21,8 @@ import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticsType
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.StatisticsDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.StatisticsType;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.SummaryStatisticType;
+import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.SummaryStatisticTypeCodedDocument;
+import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.SummaryStatisticTypeCodedType;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.VariableStatisticsDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.VariableStatisticsType;
 import org.ddialliance.ddi3.xml.xmlbeans.reusable.CodeValueType;
@@ -50,6 +54,7 @@ public class SpssStatsImportRunnable implements Runnable {
 	String declareNamspaces = "declare namespace oms='http://xml.spss.com/spss/oms';"
 			+ "declare namespace ddieditor= 'http://dda.dk/ddieditor';";
 	String omsFreqQueryFunction;
+	String omsLocalCategoryFunction;
 
 	List<VariableStatisticsType> variableStatistics = new ArrayList<VariableStatisticsType>();
 
@@ -71,6 +76,10 @@ public class SpssStatsImportRunnable implements Runnable {
 
 		q.delete(0, q.length());
 		q.append(declareNamspaces);
+		q.append("declare function ddieditor:get_category($group_text) as element()* {");
+		q.append("let $category :=  for $x in $this//oms:group where $x/@text=$group_text return $x/oms:category return $category");
+		q.append("};");
+		omsLocalCategoryFunction = q.toString();
 
 		dFormat.setRoundingMode(RoundingMode.HALF_EVEN);
 		dFormat.setMaximumFractionDigits(0);
@@ -79,10 +88,10 @@ public class SpssStatsImportRunnable implements Runnable {
 	@Override
 	public void run() {
 		try {
-			
+
 			file = new File(inOxmlFile);
 			importStats();
-			
+			storeDdi();
 		} catch (Exception e) {
 			Editor.showError(e, null);
 		} finally {
@@ -137,11 +146,6 @@ public class SpssStatsImportRunnable implements Runnable {
 				createCodeStatistics(entry);
 			}
 		}
-
-		// store ddi
-		for (VariableStatisticsType varStat : variableStatistics) {
-			System.out.println(varStat); 
-		}
 	}
 
 	public void createCodeStatistics(Entry<String, IdElement> entry)
@@ -160,23 +164,58 @@ public class SpssStatsImportRunnable implements Runnable {
 		VariableStatisticsType varStatType = varStatDoc
 				.addNewVariableStatistics();
 
+		// var ref
 		IdentificationManager.getInstance().addReferenceInformation(
 				varStatType.addNewVariableReference(),
 				LightXmlObjectUtil.createLightXmlObject(null, null, entry
 						.getValue().getId(), entry.getValue().getVersion(),
 						"Variable"));
 
-		CategoryStatisticsType catStatType = varStatType
-				.addNewCategoryStatistics();
-		
 		//
 		// category frequencies
 		//
-		CategoryDocument[] spssTopCategories = (CategoryDocument[]) spssPivotTableDoc
-				.execQuery(declareNamspaces
-						+ "let $category :=  for $x in $this//oms:group where $x/@text=\"-1\" return $x/oms:category return $category");
+		createCategoryStatisticsCodes(varStatType, spssPivotTableDoc, "-1");
+
+		//
+		// missing frequencies
+		//
+		createCategoryStatisticsCodes(varStatType, spssPivotTableDoc, "Missing");
+
+		//
+		// summary statistics
+		//
+		createValidSummaryStatistic(varStatType, spssPivotTableDoc, "Valid");
+
+		createTotalSummaryStatistic(varStatType, spssPivotTableDoc);
+
+		// total responces
+		// varStatType.setTotalResponses(new BigInteger(""));
+
+		// sum percent
+
+		// sum valid percent
+		// valid total percent
+
+		variableStatistics.add(varStatType);
+	}
+
+	private void createCategoryStatisticsCodes(
+			VariableStatisticsType varStatType, XmlObject spssPivotTableDoc,
+			String groupText) throws Exception {
+		// top spps categories
+		CategoryDocument[] spssTopCategories = null;
+		XmlObject[] test = spssPivotTableDoc.execQuery(omsLocalCategoryFunction
+				+ " ddieditor:get_category('" + groupText + "')");
+		if (test.length == 0) { // guard
+			return;
+		}
+		spssTopCategories = (CategoryDocument[]) test;
+
+		// spss value labels
 		for (int i = 0; i < spssTopCategories.length; i++) {
 			// category value
+			CategoryStatisticsType catStatType = varStatType
+					.addNewCategoryStatistics();
 			catStatType.setCategoryValue(dFormat.format(spssTopCategories[i]
 					.getCategory().getNumber()));
 
@@ -191,7 +230,6 @@ public class SpssStatsImportRunnable implements Runnable {
 								.equals(CategoryStatisticTypeCodedType.CUMULATIVE_PERCENT)) {
 					continue;
 				}
-				
 				CategoryStatisticType cat = catStatType
 						.addNewCategoryStatistic();
 
@@ -229,25 +267,102 @@ public class SpssStatsImportRunnable implements Runnable {
 				cat.setWeighted(false);
 			}
 		}
+	}
 
-		//
-		// missing frequencies
-		//
-		
-		//
-		// summary statistics
-		//
-		SummaryStatisticType sumStatType = varStatType.addNewSummaryStatistic();
+	private void createValidSummaryStatistic(
+			VariableStatisticsType varStatType, XmlObject spssPivotTableDoc,
+			String groupText) throws Exception {
+		// top spps categories
+		CategoryDocument[] spssTopCategories = null;
+		XmlObject[] test = spssPivotTableDoc.execQuery(omsLocalCategoryFunction
+				+ " ddieditor:get_category('" + groupText + "')");
+		if (test.length == 0) { // guard
+			return;
+		}
+		spssTopCategories = (CategoryDocument[]) test;
 
-		// total responces
-		// varStatType.setTotalResponses(new BigInteger(""));
+		for (Category spssCategory : spssTopCategories[0].getCategory()
+				.getDimension().getCategoryList()) {
+			if (spssCategory.getText().equals("Percent")) {
+				SummaryStatisticType sumStat = varStatType
+						.addNewSummaryStatistic();
+				SummaryStatisticTypeCodedType summaryStatCode = substituteSummaryStatisticType(sumStat
+						.addNewSummaryStatisticType());
+				summaryStatCode.set(SummaryStatisticTypeCodedType.USE_OTHER);
+				summaryStatCode.setOtherValue("ValidTotalPercent");
 
-		// sum percent
+				String number = dFormat.format(spssCategory.getCell()
+						.getNumber());
+				sumStat.setValue(new BigDecimal(number));
+			}
 
-		// sum valid percent
-		// valid total percent
+			if (spssCategory.getText().equals("Valid Percent")) {
+				SummaryStatisticType sumStat = varStatType
+						.addNewSummaryStatistic();
+				SummaryStatisticTypeCodedType summaryStatCode = substituteSummaryStatisticType(sumStat
+						.addNewSummaryStatisticType());
+				summaryStatCode.set(SummaryStatisticTypeCodedType.USE_OTHER);
+				summaryStatCode.setOtherValue("SumValidPerent");
 
-		variableStatistics.add(varStatType);
+				String number = dFormat.format(spssCategory.getCell()
+						.getNumber());
+				sumStat.setValue(new BigDecimal(number));
+			}
+		}
+	}
+
+	private void createTotalSummaryStatistic(
+			VariableStatisticsType varStatType,
+			PivotTableDocument spssPivotTableDoc) {
+		if (spssPivotTableDoc.getPivotTable().getDimension().getCategoryList()
+				.isEmpty()) { // guard
+			return;
+		}
+
+		Category spssTopCategory = spssPivotTableDoc.getPivotTable()
+				.getDimension().getCategoryList().get(0);
+		for (Category spssCategory : spssTopCategory.getDimension()
+				.getCategoryList()) {
+			if (spssCategory.getText().equals("Percent")) {
+				SummaryStatisticType sumStat = varStatType
+						.addNewSummaryStatistic();
+				SummaryStatisticTypeCodedType summaryStatCode = substituteSummaryStatisticType(sumStat
+						.addNewSummaryStatisticType());
+				summaryStatCode.set(SummaryStatisticTypeCodedType.USE_OTHER);
+				summaryStatCode.setOtherValue("SumPercent");
+
+				String number = dFormat.format(spssCategory.getCell()
+						.getNumber());
+				sumStat.setValue(new BigDecimal(number));
+			}
+
+			if (spssCategory.getText().equals("Valid Percent")) {
+				SummaryStatisticType sumStat = varStatType
+						.addNewSummaryStatistic();
+				SummaryStatisticTypeCodedType summaryStatCode = substituteSummaryStatisticType(sumStat
+						.addNewSummaryStatisticType());
+				summaryStatCode.set(SummaryStatisticTypeCodedType.USE_OTHER);
+				summaryStatCode.setOtherValue("SumValidPerent");
+
+				String number = dFormat.format(spssCategory.getCell()
+						.getNumber());
+				sumStat.setValue(new BigDecimal(number));
+			}
+
+			if (spssCategory.getText().equals("Frequency")) {
+				String number = spssCategory.getCell().getText();
+				varStatType.setTotalResponses(new BigInteger(number));
+			}
+		}
+	}
+
+	private SummaryStatisticTypeCodedType substituteSummaryStatisticType(
+			CodeValueType codeValue) {
+		SummaryStatisticTypeCodedType result = (SummaryStatisticTypeCodedType) codeValue
+				.substitute(SummaryStatisticTypeCodedDocument.type
+						.getDocumentElementName(),
+						SummaryStatisticTypeCodedType.type);
+		return result;
 	}
 
 	private String getSpssPivotTableByVariableName(String variableName)
@@ -273,6 +388,7 @@ public class SpssStatsImportRunnable implements Runnable {
 		statsType.setVariableStatisticsArray(variableStatistics
 				.toArray(new VariableStatisticsType[] {}));
 
+		System.out.println(statsDoc);
 		// insert into persistence storage
 		// DdiManager.getInstance().
 	}

@@ -9,6 +9,7 @@ public class SpssStatsToDdiLStatsMap {
 	public static Map<String, CategoryStatisticTypeCodedType.Enum> categoryStatisticTypeMap = new HashMap<String, CategoryStatisticTypeCodedType.Enum>();
 	public static Map<String, String> otherCategoryStatisticTypeMap = new HashMap<String, String>();
 	static {
+		// category statistic type
 		categoryStatisticTypeMap.put("Frequency",
 				CategoryStatisticTypeCodedType.FREQUENCY);
 		categoryStatisticTypeMap.put("Percent",
@@ -18,6 +19,7 @@ public class SpssStatsToDdiLStatsMap {
 		categoryStatisticTypeMap.put("Cumulative Percent",
 				CategoryStatisticTypeCodedType.CUMULATIVE_PERCENT);
 		
+		// other category statistic type
 		otherCategoryStatisticTypeMap.put("Valid Percent", "ValidPercent");
 	}
 }
