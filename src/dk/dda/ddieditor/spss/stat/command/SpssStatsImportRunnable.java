@@ -14,9 +14,11 @@ import java.util.Map.Entry;
 import javax.xml.parsers.SAXParserFactory;
 
 import org.apache.xmlbeans.XmlObject;
+import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticType;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticTypeCodedDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticTypeCodedType;
+import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticTypeDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticsType;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.StatisticsDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.StatisticsType;
@@ -28,8 +30,11 @@ import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.VariableStatisticsType
 import org.ddialliance.ddi3.xml.xmlbeans.reusable.CodeValueType;
 import org.ddialliance.ddieditor.logic.identification.IdentificationManager;
 import org.ddialliance.ddieditor.model.DdiManager;
+import org.ddialliance.ddieditor.model.lightxmlobject.LightXmlObjectListDocument;
+import org.ddialliance.ddieditor.model.lightxmlobject.LightXmlObjectType;
 import org.ddialliance.ddieditor.model.resource.DDIResourceType;
 import org.ddialliance.ddieditor.persistenceaccess.PersistenceManager;
+import org.ddialliance.ddieditor.persistenceaccess.XQueryInsertKeyword;
 import org.ddialliance.ddieditor.persistenceaccess.filesystem.FilesystemManager;
 import org.ddialliance.ddieditor.ui.editor.Editor;
 import org.ddialliance.ddieditor.util.LightXmlObjectUtil;
@@ -55,8 +60,9 @@ public class SpssStatsImportRunnable implements Runnable {
 			+ "declare namespace ddieditor= 'http://dda.dk/ddieditor';";
 	String omsFreqQueryFunction;
 	String omsLocalCategoryFunction;
+	String query;
 
-	List<VariableStatisticsType> variableStatistics = new ArrayList<VariableStatisticsType>();
+	List<VariableStatisticsDocument> variableStatistics = new ArrayList<VariableStatisticsDocument>();
 
 	NumberFormat dFormat = NumberFormat.getInstance();
 
@@ -81,6 +87,16 @@ public class SpssStatsImportRunnable implements Runnable {
 		q.append("};");
 		omsLocalCategoryFunction = q.toString();
 
+		try {
+			query = DdiManager
+					.getInstance()
+					.getDdi3NamespaceHelper()
+					.addFullyQualifiedNamespaceDeclarationToElements(
+							"PhysicalInstance/Statistics");
+		} catch (DDIFtpException e) {
+			e.printStackTrace();
+		}
+
 		dFormat.setRoundingMode(RoundingMode.HALF_EVEN);
 		dFormat.setMaximumFractionDigits(0);
 	}
@@ -96,6 +112,8 @@ public class SpssStatsImportRunnable implements Runnable {
 			Editor.showError(e, null);
 		} finally {
 			try {
+				PersistenceManager.getInstance().setWorkingResource(
+						file.getName());
 				PersistenceManager.getInstance().deleteResource(file.getName());
 				PersistenceManager.getInstance().deleteStorage(
 						PersistenceManager.getStorageId(file));
@@ -106,9 +124,7 @@ public class SpssStatsImportRunnable implements Runnable {
 	}
 
 	public void importStats() throws Exception {
-		// query ddi vars varname, id version agency
-		// String queryResult =
-		// "<IdElement id=\"id\" version=\"version\" agency=\"agency\" name=\"name\"/>";
+		// query ddi vars
 		PersistenceManager.getInstance().setWorkingResource(
 				this.selectedResource.getOrgName());
 		String queryResult = DdiManager.getInstance().getVariableShort();
@@ -151,7 +167,7 @@ public class SpssStatsImportRunnable implements Runnable {
 	public void createCodeStatistics(Entry<String, IdElement> entry)
 			throws DDIFtpException, Exception {
 		String spssPivotTableXml = getSpssPivotTableByVariableName(entry
-				.getKey().toLowerCase());
+				.getKey());
 		if (spssPivotTableXml.equals("")) {
 			return;
 		}
@@ -185,18 +201,10 @@ public class SpssStatsImportRunnable implements Runnable {
 		// summary statistics
 		//
 		createValidSummaryStatistic(varStatType, spssPivotTableDoc, "Valid");
-
 		createTotalSummaryStatistic(varStatType, spssPivotTableDoc);
 
-		// total responces
-		// varStatType.setTotalResponses(new BigInteger(""));
-
-		// sum percent
-
-		// sum valid percent
-		// valid total percent
-
-		variableStatistics.add(varStatType);
+		// add
+		variableStatistics.add(varStatDoc);
 	}
 
 	private void createCategoryStatisticsCodes(
@@ -219,6 +227,15 @@ public class SpssStatsImportRunnable implements Runnable {
 			catStatType.setCategoryValue(dFormat.format(spssTopCategories[i]
 					.getCategory().getNumber()));
 
+			// missing
+			boolean isMissing = groupText.equals("Missing");
+			CategoryStatisticType[] cats;
+			if (isMissing) {
+				cats = new CategoryStatisticType[2];				
+			} else {
+				cats = new CategoryStatisticType[3];
+			}
+			
 			for (Category spssCategory : spssTopCategories[i].getCategory()
 					.getDimension().getCategoryList()) {
 				// guard check spss cat type
@@ -230,15 +247,16 @@ public class SpssStatsImportRunnable implements Runnable {
 								.equals(CategoryStatisticTypeCodedType.CUMULATIVE_PERCENT)) {
 					continue;
 				}
-				CategoryStatisticType cat = catStatType
-						.addNewCategoryStatistic();
+				// CategoryStatisticType cat = catStatType
+				// .addNewCategoryStatistic();
 
+				CategoryStatisticDocument catDoc = CategoryStatisticDocument.Factory
+						.newInstance();
+				catDoc.addNewCategoryStatistic();
+				
 				// type
-				CodeValueType codeValue = cat.addNewCategoryStatisticType();
-				CategoryStatisticTypeCodedType catStatCodeType = (CategoryStatisticTypeCodedType) codeValue
-						.substitute(CategoryStatisticTypeCodedDocument.type
-								.getDocumentElementName(),
-								CategoryStatisticTypeCodedType.type);
+				CategoryStatisticTypeCodedType catStatCodeType = createCategoryStatisticTypeCoded(catDoc
+						.getCategoryStatistic());
 				catStatCodeType
 						.set(SpssStatsToDdiLStatsMap.categoryStatisticTypeMap
 								.get(spssCategory.getText()));
@@ -261,12 +279,49 @@ public class SpssStatsImportRunnable implements Runnable {
 				} else {
 					number = dFormat.format(spssCategory.getCell().getNumber());
 				}
-				cat.setValue(new BigDecimal(number));
+				catDoc.getCategoryStatistic().setValue(new BigDecimal(number));
 
 				// weight
-				cat.setWeighted(false);
+				catDoc.getCategoryStatistic().setWeighted(false);
+				
+				// order 
+				// Percent
+				if (catStatCodeType.enumValue().equals(
+						CategoryStatisticTypeCodedType.PERCENT)) {
+					cats[0] = catDoc.getCategoryStatistic();
+				}
+				// Valid Percent
+				if (catStatCodeType.enumValue().equals(
+						CategoryStatisticTypeCodedType.USE_OTHER)) {
+					cats[1] = catDoc.getCategoryStatistic();
+				}
+				// Frequency
+				if (catStatCodeType.enumValue().equals(
+						CategoryStatisticTypeCodedType.FREQUENCY)) {
+					int position = 2;
+					if (isMissing) {
+						position = 1;
+					} 
+					cats[position] = catDoc.getCategoryStatistic();
+				}
 			}
+			catStatType.setCategoryStatisticArray(cats);
 		}
+	}
+
+	private CategoryStatisticTypeCodedType createCategoryStatisticTypeCoded(
+			CategoryStatisticType cat) {
+		CategoryStatisticTypeCodedType catStatCodeType = (CategoryStatisticTypeCodedType) cat
+				.addNewCategoryStatisticType()
+				.substitute(
+						CategoryStatisticTypeCodedDocument.type
+								.getDocumentElementName(),
+						CategoryStatisticTypeCodedType.type);
+
+		catStatCodeType.setCodeListAgencyName("DDI");
+		catStatCodeType.setCodeListID("Category Statistic Type");
+		catStatCodeType.setCodeListVersionID("1.0");
+		return catStatCodeType;
 	}
 
 	private void createValidSummaryStatistic(
@@ -283,26 +338,26 @@ public class SpssStatsImportRunnable implements Runnable {
 
 		for (Category spssCategory : spssTopCategories[0].getCategory()
 				.getDimension().getCategoryList()) {
+			// svar procent
 			if (spssCategory.getText().equals("Percent")) {
-				SummaryStatisticType sumStat = varStatType
-						.addNewSummaryStatistic();
+				SummaryStatisticType sumStat = createSummaryStatistic(varStatType);
 				SummaryStatisticTypeCodedType summaryStatCode = substituteSummaryStatisticType(sumStat
-						.addNewSummaryStatisticType());
+						.getSummaryStatisticType());
 				summaryStatCode.set(SummaryStatisticTypeCodedType.USE_OTHER);
-				summaryStatCode.setOtherValue("ValidTotalPercent");
+				summaryStatCode.setOtherValue("ValidPercent");
 
 				String number = dFormat.format(spssCategory.getCell()
 						.getNumber());
 				sumStat.setValue(new BigDecimal(number));
 			}
 
+			// total md%
 			if (spssCategory.getText().equals("Valid Percent")) {
-				SummaryStatisticType sumStat = varStatType
-						.addNewSummaryStatistic();
+				SummaryStatisticType sumStat = createSummaryStatistic(varStatType);
 				SummaryStatisticTypeCodedType summaryStatCode = substituteSummaryStatisticType(sumStat
-						.addNewSummaryStatisticType());
+						.getSummaryStatisticType());
 				summaryStatCode.set(SummaryStatisticTypeCodedType.USE_OTHER);
-				summaryStatCode.setOtherValue("SumValidPerent");
+				summaryStatCode.setOtherValue("ValidTotalPercent");
 
 				String number = dFormat.format(spssCategory.getCell()
 						.getNumber());
@@ -323,37 +378,44 @@ public class SpssStatsImportRunnable implements Runnable {
 				.getDimension().getCategoryList().get(0);
 		for (Category spssCategory : spssTopCategory.getDimension()
 				.getCategoryList()) {
+
+			// total %
 			if (spssCategory.getText().equals("Percent")) {
-				SummaryStatisticType sumStat = varStatType
-						.addNewSummaryStatistic();
+				SummaryStatisticType sumStat = createSummaryStatistic(varStatType);
 				SummaryStatisticTypeCodedType summaryStatCode = substituteSummaryStatisticType(sumStat
-						.addNewSummaryStatisticType());
+						.getSummaryStatisticType());
 				summaryStatCode.set(SummaryStatisticTypeCodedType.USE_OTHER);
-				summaryStatCode.setOtherValue("SumPercent");
+				summaryStatCode.setOtherValue("Percent");
 
 				String number = dFormat.format(spssCategory.getCell()
 						.getNumber());
 				sumStat.setValue(new BigDecimal(number));
 			}
 
-			if (spssCategory.getText().equals("Valid Percent")) {
-				SummaryStatisticType sumStat = varStatType
-						.addNewSummaryStatistic();
-				SummaryStatisticTypeCodedType summaryStatCode = substituteSummaryStatisticType(sumStat
-						.addNewSummaryStatisticType());
-				summaryStatCode.set(SummaryStatisticTypeCodedType.USE_OTHER);
-				summaryStatCode.setOtherValue("SumValidPerent");
-
-				String number = dFormat.format(spssCategory.getCell()
-						.getNumber());
-				sumStat.setValue(new BigDecimal(number));
-			}
-
+			// total responces
 			if (spssCategory.getText().equals("Frequency")) {
 				String number = spssCategory.getCell().getText();
 				varStatType.setTotalResponses(new BigInteger(number));
 			}
 		}
+	}
+
+	private SummaryStatisticType createSummaryStatistic(
+			VariableStatisticsType varStatType) {
+		SummaryStatisticType result = varStatType.addNewSummaryStatistic();
+		result.setWeighted(false);
+
+		SummaryStatisticTypeCodedType sumStatTypeCode = (SummaryStatisticTypeCodedType) result
+				.addNewSummaryStatisticType()
+				.substitute(
+						SummaryStatisticTypeCodedDocument.type
+								.getDocumentElementName(),
+						SummaryStatisticTypeCodedType.type);
+		sumStatTypeCode.setCodeListAgencyName("DDI");
+		sumStatTypeCode.setCodeListID("Summary Statistic Type");
+		sumStatTypeCode.setCodeListVersionID("1.0");
+
+		return result;
 	}
 
 	private SummaryStatisticTypeCodedType substituteSummaryStatisticType(
@@ -382,14 +444,77 @@ public class SpssStatsImportRunnable implements Runnable {
 		return result.isEmpty() ? "" : result.get(0);
 	}
 
-	private void storeDdi() {
+	private void storeDdi() throws Exception {
+		PersistenceManager.getInstance().setWorkingResource(
+				selectedResource.getOrgName());
+
+		// delete old stat
+		try {
+			PersistenceManager.getInstance().delete(
+					PersistenceManager.getInstance().getResourcePath() + "/"
+							+ query);
+		} catch (Exception e) {
+			// do nothing if stats is null
+		}
+
+		// new stat
 		StatisticsDocument statsDoc = StatisticsDocument.Factory.newInstance();
 		StatisticsType statsType = statsDoc.addNewStatistics();
-		statsType.setVariableStatisticsArray(variableStatistics
-				.toArray(new VariableStatisticsType[] {}));
 
-		System.out.println(statsDoc);
-		// insert into persistence storage
-		// DdiManager.getInstance().
+		// look up physical instance
+		LightXmlObjectListDocument lightXmlObjectListDoc = DdiManager
+				.getInstance()
+				.getPhysicalInstancesLight(null, null, null, null);
+		if (lightXmlObjectListDoc.getLightXmlObjectList()
+				.getLightXmlObjectList().isEmpty()) { // guard
+			throw new DDIFtpException("No Physical Instance found",
+					new Throwable());
+		}
+		LightXmlObjectType lightXmlObject = lightXmlObjectListDoc
+				.getLightXmlObjectList().getLightXmlObjectList().get(0);
+
+		// store stat
+		DdiManager.getInstance().createElement(statsDoc,
+				lightXmlObject.getId(),
+				lightXmlObject.getVersion(),
+				"PhysicalInstance",
+				// parent sub-elements
+				new String[] { "UserID", "VersionRationale",
+						"VersionResponsibility", "PhysicalInstanceModuleName",
+						"Citation", "Fingerprint", "Coverage", "OtherMaterial",
+						"Note", "RecordLayoutReference",
+						"DataFileIdentification", "GrossFileStructure",
+						"ProprietaryInfo" },
+				// stop elements
+				new String[] { "ByteOrder" },
+				// jump elements
+				new String[] { "Statistics" });
+
+		// store var stat
+		for (VariableStatisticsDocument varStat : variableStatistics) {
+			storeVariableStatistics(varStat);
+		}
+		// try {
+		// File out = new File("out.xml");
+		// RandomAccessFile raf = new RandomAccessFile(out, "rw");
+		// FileChannel rafFc = raf.getChannel();
+		// rafFc.write(ByteBuffer.wrap(statsDoc.xmlText().getBytes("utf-8")));
+		// } catch (Exception e) {
+		// e.printStackTrace();
+		// }
+	}
+
+	private void storeVariableStatistics(VariableStatisticsDocument varStat)
+			throws Exception {
+		PersistenceManager.getInstance().insert(
+				DdiManager
+						.getInstance()
+						.getDdi3NamespaceHelper()
+						.substitutePrefixesFromElements(
+								varStat.xmlText(DdiManager.getInstance()
+										.getXmlOptions())),
+				XQueryInsertKeyword.AS_LAST_NODE,
+				PersistenceManager.getInstance().getResourcePath() + "/"
+						+ query);
 	}
 }
