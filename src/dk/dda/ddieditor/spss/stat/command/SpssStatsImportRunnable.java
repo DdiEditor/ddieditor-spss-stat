@@ -18,7 +18,6 @@ import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticDocum
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticType;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticTypeCodedDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticTypeCodedType;
-import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticTypeDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticsType;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.StatisticsDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.StatisticsType;
@@ -231,13 +230,20 @@ public class SpssStatsImportRunnable implements Runnable {
 			boolean isMissing = groupText.equals("Missing");
 			CategoryStatisticType[] cats;
 			if (isMissing) {
-				cats = new CategoryStatisticType[2];				
+				cats = new CategoryStatisticType[2];
 			} else {
 				cats = new CategoryStatisticType[3];
 			}
-			
+
 			for (Category spssCategory : spssTopCategories[i].getCategory()
 					.getDimension().getCategoryList()) {
+				// weed out missing total
+				if (spssTopCategories[i].getCategory().getText() != null
+						&& spssTopCategories[i].getCategory().getText()
+								.equals("Total")) {
+					continue;
+				}
+
 				// guard check spss cat type
 				if (!SpssStatsToDdiLStatsMap.categoryStatisticTypeMap
 						.containsKey(spssCategory.getText()) ||
@@ -247,13 +253,11 @@ public class SpssStatsImportRunnable implements Runnable {
 								.equals(CategoryStatisticTypeCodedType.CUMULATIVE_PERCENT)) {
 					continue;
 				}
-				// CategoryStatisticType cat = catStatType
-				// .addNewCategoryStatistic();
 
 				CategoryStatisticDocument catDoc = CategoryStatisticDocument.Factory
 						.newInstance();
 				catDoc.addNewCategoryStatistic();
-				
+
 				// type
 				CategoryStatisticTypeCodedType catStatCodeType = createCategoryStatisticTypeCoded(catDoc
 						.getCategoryStatistic());
@@ -283,8 +287,8 @@ public class SpssStatsImportRunnable implements Runnable {
 
 				// weight
 				catDoc.getCategoryStatistic().setWeighted(false);
-				
-				// order 
+
+				// order
 				// Percent
 				if (catStatCodeType.enumValue().equals(
 						CategoryStatisticTypeCodedType.PERCENT)) {
@@ -301,11 +305,16 @@ public class SpssStatsImportRunnable implements Runnable {
 					int position = 2;
 					if (isMissing) {
 						position = 1;
-					} 
+					}
 					cats[position] = catDoc.getCategoryStatistic();
 				}
 			}
-			catStatType.setCategoryStatisticArray(cats);
+
+			if (cats[0] == null && cats[1] == null) { // guard
+				continue;
+			} else {
+				catStatType.setCategoryStatisticArray(cats);
+			}
 		}
 	}
 
@@ -494,14 +503,9 @@ public class SpssStatsImportRunnable implements Runnable {
 		for (VariableStatisticsDocument varStat : variableStatistics) {
 			storeVariableStatistics(varStat);
 		}
-		// try {
-		// File out = new File("out.xml");
-		// RandomAccessFile raf = new RandomAccessFile(out, "rw");
-		// FileChannel rafFc = raf.getChannel();
-		// rafFc.write(ByteBuffer.wrap(statsDoc.xmlText().getBytes("utf-8")));
-		// } catch (Exception e) {
-		// e.printStackTrace();
-		// }
+
+		// persistence house keeping
+		PersistenceManager.getInstance().getPersistenceStorage().houseKeeping();
 	}
 
 	private void storeVariableStatistics(VariableStatisticsDocument varStat)
