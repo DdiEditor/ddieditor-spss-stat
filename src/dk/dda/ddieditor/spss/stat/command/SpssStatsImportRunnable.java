@@ -103,13 +103,13 @@ public class SpssStatsImportRunnable implements Runnable {
 	@Override
 	public void run() {
 		try {
-
 			file = new File(inOxmlFile);
 			importStats();
 			storeDdi();
 		} catch (Exception e) {
 			Editor.showError(e, null);
 		} finally {
+			// delete oxml from storage
 			try {
 				PersistenceManager.getInstance().setWorkingResource(
 						file.getName());
@@ -117,6 +117,14 @@ public class SpssStatsImportRunnable implements Runnable {
 				PersistenceManager.getInstance().deleteStorage(
 						PersistenceManager.getStorageId(file));
 			} catch (DDIFtpException e) {
+				// do nothing
+			}
+
+			// reset selected resource as working resource
+			try {
+				PersistenceManager.getInstance().setWorkingResource(
+						this.selectedResource.getOrgName());
+			} catch (Exception e2) {
 				// do nothing
 			}
 		}
