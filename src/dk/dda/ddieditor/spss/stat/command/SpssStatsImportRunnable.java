@@ -255,6 +255,13 @@ public class SpssStatsImportRunnable implements Runnable {
 
 		// spss value labels
 		for (int i = 0; i < spssTopCategories.length; i++) {
+			// weed out missing total
+			if (spssTopCategories[i].getCategory().getText() != null
+					&& spssTopCategories[i].getCategory().getText()
+							.equals("Total")) {
+				continue;
+			}
+			
 			// category value
 			CategoryStatisticsType catStatType = varStatType
 					.addNewCategoryStatistics();
@@ -272,13 +279,6 @@ public class SpssStatsImportRunnable implements Runnable {
 
 			for (Category spssCategory : spssTopCategories[i].getCategory()
 					.getDimension().getCategoryList()) {
-				// weed out missing total
-				if (spssTopCategories[i].getCategory().getText() != null
-						&& spssTopCategories[i].getCategory().getText()
-								.equals("Total")) {
-					continue;
-				}
-
 				// guard check spss cat type
 				if (!SpssStatsToDdiLStatsMap.categoryStatisticTypeMap
 						.containsKey(spssCategory.getText()) ||
