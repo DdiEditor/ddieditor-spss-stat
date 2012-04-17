@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
-<project name="DdiEditor-Spss-Stats" default="resource" basedir=".">
+<project name="DdiEditor-Spss" default="resource" basedir=".">
+
 	<!-- properties -->
 	<property file="${basedir}/../lib-java/lib.properties" />
 	<property environment="env" />
@@ -47,5 +48,18 @@
 				<include name="**/*.*" />
 			</fileset>
 		</copy>
+	</target>
+
+	<!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+	<!-- Generating javadoc         				 -->
+	<!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+	<target name="javadoc" description="Compile javadoc">
+		<mkdir dir="${build.dir.jdoc}" />
+		<javadoc sourcepath="${src.dir}" destdir="${build.dir.jdoc}" classpathref="project.classpath" splitindex="true" verbose="true">
+			<fileset dir="${src.dir}">
+				<include name="org/opendatafoundation/data/**/*" />
+				<include name="org/ddialliance/ddieditor/spss/**/*" />
+			</fileset>
+		</javadoc>
 	</target>
 </project>

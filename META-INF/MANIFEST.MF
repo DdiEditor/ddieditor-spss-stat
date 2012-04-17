@@ -1,16 +1,21 @@
 Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
-Bundle-Name: DdiEditor SPSS Statistics
-Bundle-SymbolicName: ddieditor-spss-stat;singleton:=true
-Bundle-Version: 0.1.0
-Bundle-Activator: dk.dda.ddieditor.spss.stat.osgi.Activator
+Bundle-Name: DdiEditor SPSS
+Bundle-SymbolicName: ddieditor-spss;singleton:=true
+Bundle-Version: 0.15.0
+Bundle-ClassPath: ., bin
+Bundle-Activator: dk.dda.ddieditor.spss.osgi.Activator
 Bundle-Vendor: Danish Data Archive
-Require-Bundle: org.eclipse.ui,
- org.eclipse.core.runtime,
- lib-java;bundle-version="0.10.0",
- util;bundle-version="0.18.0",
+Export-Package: dk.dda.ddieditor.spss.command,
+ dk.dda.ddieditor.spss.wizard,
+ org.opendatafoundation.data,
+ org.opendatafoundation.data.spss
+Require-Bundle: util;bundle-version="0.18.0",
  ddieditor;bundle-version="0.17.0",
- ddieditor-ui;bundle-version="0.13.0"
+ org.eclipse.ui;bundle-version="3.6.1",
+ org.eclipse.core.runtime;bundle-version="3.6.0",
+ lib-java;bundle-version="0.4.3",
+ ddieditor-model;bundle-version="0.1.0",
+ ddieditor-ui;bundle-version="0.10.0"
 Bundle-RequiredExecutionEnvironment: JavaSE-1.6
 Bundle-ActivationPolicy: lazy
-Bundle-Copyright: LGLP

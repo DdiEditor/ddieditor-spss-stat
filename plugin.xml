@@ -4,19 +4,20 @@
    <extension
          point="org.eclipse.ui.commands">
       <command
-            defaultHandler="dk.dda.ddieditor.spss.stat.command.ImportSpssStats"
-            id="dk.dda.ddieditor.spss.stat.command.ImportSpssStats"
-            name="Import SPSS Stat">
+            defaultHandler="dk.dda.ddieditor.spss.command.ImportSpss"
+            id="dk.dda.ddieditor.spss.command.ImportSpss"
+            name="Import SPSS">
       </command>
    </extension>
    <extension
          point="org.eclipse.ui.menus">
       <menuContribution
-            allPopups="false"
             locationURI="menu:filemenu-importmenu?after=merge-ddi">
          <command
-               commandId="dk.dda.ddieditor.spss.stat.command.ImportSpssStats"
-               label="SPSS Statistics"
+               commandId="dk.dda.ddieditor.spss.command.ImportSpss"
+               icon="icons/Document.png"
+               id="import-study-level-info"
+               label="SPSS file"
                style="push">
          </command>
       </menuContribution>
