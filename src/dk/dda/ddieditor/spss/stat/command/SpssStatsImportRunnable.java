@@ -40,6 +40,9 @@ import org.ddialliance.ddieditor.ui.editor.Editor;
 import org.ddialliance.ddieditor.util.LightXmlObjectUtil;
 import org.ddialliance.ddiftp.util.DDIFtpException;
 import org.ddialliance.ddiftp.util.Translator;
+import org.ddialliance.ddiftp.util.log.Log;
+import org.ddialliance.ddiftp.util.log.LogFactory;
+import org.ddialliance.ddiftp.util.log.LogType;
 import org.xml.sax.InputSource;
 import org.xml.sax.XMLReader;
 
@@ -80,6 +83,8 @@ import dk.dda.ddieditor.spss.stat.util.SpssStatsToDdiLStatsMap;
  * 3. Store DDI-L on selected resource<br>
  */
 public class SpssStatsImportRunnable implements Runnable {
+	private Log log = LogFactory.getLog(LogType.SYSTEM,
+			SpssStatsImportRunnable.class);
 	public DDIResourceType selectedResource = null;
 	public String inOxmlFile = null;
 
@@ -91,8 +96,9 @@ public class SpssStatsImportRunnable implements Runnable {
 	String query;
 
 	List<VariableStatisticsDocument> variableStatistics = new ArrayList<VariableStatisticsDocument>();
+	StatisticsType statsType;
 
-	NumberFormat dFormat = NumberFormat.getInstance();
+	NumberFormat dFormat = NumberFormat.getInstance(Locale.US);
 
 	public SpssStatsImportRunnable(DDIResourceType selectedResource,
 			String inOxmlFile) {
@@ -126,7 +132,6 @@ public class SpssStatsImportRunnable implements Runnable {
 		}
 
 		dFormat.setRoundingMode(RoundingMode.HALF_EVEN);
-		dFormat.setMaximumFractionDigits(-1);
 		dFormat.setGroupingUsed(false);
 	}
 
@@ -196,7 +201,7 @@ public class SpssStatsImportRunnable implements Runnable {
 
 			if (entry.getValue().getRepresentationType()
 					.equals(IdElement.RepresentationType.CODE)
-					| entry.getValue().getRepresentationType()
+					|| entry.getValue().getRepresentationType()
 							.equals(IdElement.RepresentationType.NUMERIC)) {
 				createCodeStatistics(entry);
 			}
@@ -212,11 +217,12 @@ public class SpssStatsImportRunnable implements Runnable {
 		}
 		PivotTableDocument spssPivotTableDoc = PivotTableDocument.Factory
 				.parse(spssPivotTableXml);
-		
+
 		// return if numeric without missing value(s)
 		if (entry.getValue().getRepresentationType()
 				.equals(IdElement.RepresentationType.NUMERIC)) {
-			List<Group> lGroup = spssPivotTableDoc.getPivotTable().getDimension().getGroupList();
+			List<Group> lGroup = spssPivotTableDoc.getPivotTable()
+					.getDimension().getGroupList();
 			boolean missingFound = false;
 			for (Group group : lGroup) {
 				if (group.getText().equals("Missing")) {
@@ -241,6 +247,10 @@ public class SpssStatsImportRunnable implements Runnable {
 				LightXmlObjectUtil.createLightXmlObject(null, null, entry
 						.getValue().getId(), entry.getValue().getVersion(),
 						"Variable"));
+
+		if (log.isDebugEnabled()) {
+			log.debug("Variable: " + entry.getValue().getId());
+		}
 
 		//
 		// category frequencies
@@ -282,7 +292,7 @@ public class SpssStatsImportRunnable implements Runnable {
 							.equals("Total")) {
 				continue;
 			}
-			
+
 			// category value
 			CategoryStatisticsType catStatType = varStatType
 					.addNewCategoryStatistics();
@@ -339,7 +349,16 @@ public class SpssStatsImportRunnable implements Runnable {
 				} else {
 					number = dFormat.format(spssCategory.getCell().getNumber());
 				}
-				catDoc.getCategoryStatistic().setValue(new BigDecimal(number));
+				try {
+					catDoc.getCategoryStatistic().setValue(
+							new BigDecimal(number));
+				} catch (Exception e) {
+					if (log.isDebugEnabled()) {
+						log.debug("Number format exception for value: "
+								+ number);
+
+					}
+				}
 
 				// weight
 				catDoc.getCategoryStatistic().setWeighted(false);
