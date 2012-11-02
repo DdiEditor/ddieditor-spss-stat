@@ -37,6 +37,7 @@ import org.ddialliance.ddieditor.persistenceaccess.PersistenceManager;
 import org.ddialliance.ddieditor.persistenceaccess.XQueryInsertKeyword;
 import org.ddialliance.ddieditor.persistenceaccess.filesystem.FilesystemManager;
 import org.ddialliance.ddieditor.ui.editor.Editor;
+import org.ddialliance.ddieditor.util.DdiEditorConfig;
 import org.ddialliance.ddieditor.util.LightXmlObjectUtil;
 import org.ddialliance.ddiftp.util.DDIFtpException;
 import org.ddialliance.ddiftp.util.Translator;
@@ -85,6 +86,7 @@ import dk.dda.ddieditor.spss.stat.util.SpssStatsToDdiLStatsMap;
 public class SpssStatsImportRunnable implements Runnable {
 	private Log log = LogFactory.getLog(LogType.SYSTEM,
 			SpssStatsImportRunnable.class);
+	int doHouseKeeping = 0;
 	public DDIResourceType selectedResource = null;
 	public String inOxmlFile = null;
 
@@ -103,6 +105,7 @@ public class SpssStatsImportRunnable implements Runnable {
 	public SpssStatsImportRunnable(DDIResourceType selectedResource,
 			String inOxmlFile) {
 		super();
+		doHouseKeeping = DdiEditorConfig.getInt(DdiEditorConfig.DO_HOUSE_KEEPING_COUNT);
 		this.selectedResource = selectedResource;
 		this.inOxmlFile = inOxmlFile;
 
@@ -138,34 +141,19 @@ public class SpssStatsImportRunnable implements Runnable {
 	@Override
 	public void run() {
 		try {
-			file = new File(inOxmlFile);
 			importStats();
 			storeDdi();
 		} catch (Exception e) {
 			Editor.showError(e, null);
 		} finally {
-			// delete oxml from storage
-			try {
-				PersistenceManager.getInstance().setWorkingResource(
-						file.getName());
-				PersistenceManager.getInstance().deleteResource(file.getName());
-				PersistenceManager.getInstance().deleteStorage(
-						PersistenceManager.getStorageId(file));
-			} catch (DDIFtpException e) {
-				// do nothing
-			}
-
-			// reset selected resource as working resource
-			try {
-				PersistenceManager.getInstance().setWorkingResource(
-						this.selectedResource.getOrgName());
-			} catch (Exception e2) {
-				// do nothing
-			}
+			cleanUp();
 		}
 	}
 
 	public void importStats() throws Exception {
+		// stat file
+		file = new File(inOxmlFile);
+
 		// query ddi vars
 		PersistenceManager.getInstance().setWorkingResource(
 				this.selectedResource.getOrgName());
@@ -208,7 +196,7 @@ public class SpssStatsImportRunnable implements Runnable {
 		}
 	}
 
-	public void createCodeStatistics(Entry<String, IdElement> entry)
+	private void createCodeStatistics(Entry<String, IdElement> entry)
 			throws DDIFtpException, Exception {
 		String spssPivotTableXml = getSpssPivotTableByVariableName(entry
 				.getKey());
@@ -528,7 +516,7 @@ public class SpssStatsImportRunnable implements Runnable {
 		return result.isEmpty() ? "" : result.get(0);
 	}
 
-	private void storeDdi() throws Exception {
+	public void storeDdi() throws Exception {
 		PersistenceManager.getInstance().setWorkingResource(
 				selectedResource.getOrgName());
 
@@ -575,11 +563,21 @@ public class SpssStatsImportRunnable implements Runnable {
 				new String[] { "Statistics" });
 
 		// store var stat
+		int count = 0;
 		for (VariableStatisticsDocument varStat : variableStatistics) {
+			if (count == doHouseKeeping) {
+				// clean logs
+				PersistenceManager.getInstance().getPersistenceStorage()
+						.houseKeeping();
+				count = 0;
+			} else {
+				count++;
+			}
+
 			storeVariableStatistics(varStat);
 		}
 
-		// persistence house keeping
+		// final house keeping
 		PersistenceManager.getInstance().getPersistenceStorage().houseKeeping();
 	}
 
@@ -595,5 +593,25 @@ public class SpssStatsImportRunnable implements Runnable {
 				XQueryInsertKeyword.AS_LAST_NODE,
 				PersistenceManager.getInstance().getResourcePath() + "/"
 						+ query);
+	}
+
+	public void cleanUp() {
+		// delete oxml from storage
+		try {
+			PersistenceManager.getInstance().setWorkingResource(file.getName());
+			PersistenceManager.getInstance().deleteResource(file.getName());
+			PersistenceManager.getInstance().deleteStorage(
+					PersistenceManager.getStorageId(file));
+		} catch (DDIFtpException e) {
+			// do nothing
+		}
+
+		// reset selected resource as working resource
+		try {
+			PersistenceManager.getInstance().setWorkingResource(
+					this.selectedResource.getOrgName());
+		} catch (Exception e2) {
+			// do nothing
+		}
 	}
 }
