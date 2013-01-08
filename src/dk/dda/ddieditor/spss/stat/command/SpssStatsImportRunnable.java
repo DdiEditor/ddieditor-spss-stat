@@ -47,10 +47,10 @@ import org.ddialliance.ddiftp.util.log.LogType;
 import org.xml.sax.InputSource;
 import org.xml.sax.XMLReader;
 
-import com.spss.xml.spss.oms.CategoryDocument;
-import com.spss.xml.spss.oms.CategoryDocument.Category;
-import com.spss.xml.spss.oms.GroupDocument.Group;
-import com.spss.xml.spss.oms.PivotTableDocument;
+import com.ibm.software.analytics.spss.xml.oms.CategoryDocument;
+import com.ibm.software.analytics.spss.xml.oms.CategoryDocument.Category;
+import com.ibm.software.analytics.spss.xml.oms.GroupDocument.Group;
+import com.ibm.software.analytics.spss.xml.oms.PivotTableDocument;
 
 import dk.dda.ddieditor.spss.stat.idelement.IdElement;
 import dk.dda.ddieditor.spss.stat.idelement.IdElementContentHandler;
@@ -91,8 +91,10 @@ public class SpssStatsImportRunnable implements Runnable {
 	public String inOxmlFile = null;
 
 	File file;
-	String declareNamspaces = "declare namespace oms='http://xml.spss.com/spss/oms';"
-			+ "declare namespace ddieditor= 'http://dda.dk/ddieditor';";
+	String spssNamespace = "";
+//	String declareNamspaces = "declare namespace oms='http://xml.spss.com/spss/oms';"
+//			+ "declare namespace ddieditor= 'http://dda.dk/ddieditor';";
+	String declareNamspaces = "";
 	String omsFreqQueryFunction;
 	String omsLocalCategoryFunction;
 	String query;
@@ -105,9 +107,18 @@ public class SpssStatsImportRunnable implements Runnable {
 	public SpssStatsImportRunnable(DDIResourceType selectedResource,
 			String inOxmlFile) {
 		super();
-		doHouseKeeping = DdiEditorConfig.getInt(DdiEditorConfig.DO_HOUSE_KEEPING_COUNT);
+		doHouseKeeping = DdiEditorConfig
+				.getInt(DdiEditorConfig.DO_HOUSE_KEEPING_COUNT);
 		this.selectedResource = selectedResource;
 		this.inOxmlFile = inOxmlFile;
+
+		// spss namespace to change from spss version
+		// the change is from 21 and onwards
+		// Note: import of com.ibm.software.analytics.spss.xml.oms is currently NOT configurable
+		spssNamespace = DdiEditorConfig
+				.get(DdiEditorConfig.SPPS_OMS_XML_NAMESPACE);
+		declareNamspaces = "declare namespace oms='" + spssNamespace + "';"
+				+ "declare namespace ddieditor= 'http://dda.dk/ddieditor';";
 
 		StringBuilder q = new StringBuilder();
 		q.append(declareNamspaces);
