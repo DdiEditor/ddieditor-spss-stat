@@ -47,10 +47,10 @@ import org.ddialliance.ddiftp.util.log.LogType;
 import org.xml.sax.InputSource;
 import org.xml.sax.XMLReader;
 
-import com.ibm.software.analytics.spss.xml.oms.CategoryDocument;
-import com.ibm.software.analytics.spss.xml.oms.CategoryDocument.Category;
-import com.ibm.software.analytics.spss.xml.oms.GroupDocument.Group;
-import com.ibm.software.analytics.spss.xml.oms.PivotTableDocument;
+import com.spss.xml.spss.oms.CategoryDocument;
+import com.spss.xml.spss.oms.CategoryDocument.Category;
+import com.spss.xml.spss.oms.GroupDocument.Group;
+import com.spss.xml.spss.oms.PivotTableDocument;
 
 import dk.dda.ddieditor.spss.stat.idelement.IdElement;
 import dk.dda.ddieditor.spss.stat.idelement.IdElementContentHandler;
@@ -92,8 +92,9 @@ public class SpssStatsImportRunnable implements Runnable {
 
 	File file;
 	String spssNamespace = "";
-//	String declareNamspaces = "declare namespace oms='http://xml.spss.com/spss/oms';"
-//			+ "declare namespace ddieditor= 'http://dda.dk/ddieditor';";
+	// String declareNamspaces =
+	// "declare namespace oms='http://xml.spss.com/spss/oms';"
+	// + "declare namespace ddieditor= 'http://dda.dk/ddieditor';";
 	String declareNamspaces = "";
 	String omsFreqQueryFunction;
 	String omsLocalCategoryFunction;
@@ -114,7 +115,8 @@ public class SpssStatsImportRunnable implements Runnable {
 
 		// spss namespace to change from spss version
 		// the change is from 21 and onwards
-		// Note: import of com.ibm.software.analytics.spss.xml.oms is currently NOT configurable
+		// Note: import of com.ibm.software.analytics.spss.xml.oms is currently
+		// NOT configurable
 		spssNamespace = DdiEditorConfig
 				.get(DdiEditorConfig.SPPS_OMS_XML_NAMESPACE);
 		declareNamspaces = "declare namespace oms='" + spssNamespace + "';"
