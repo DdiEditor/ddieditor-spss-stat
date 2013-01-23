@@ -533,6 +533,9 @@ public class SpssStatsImportRunnable implements Runnable {
 		PersistenceManager.getInstance().setWorkingResource(
 				selectedResource.getOrgName());
 
+		PersistenceManager.getInstance().getPersistenceStorage()
+				.setReuseTransaction(true);
+		
 		// delete old stat
 		try {
 			PersistenceManager.getInstance().delete(
@@ -590,6 +593,9 @@ public class SpssStatsImportRunnable implements Runnable {
 			storeVariableStatistics(varStat);
 		}
 
+		PersistenceManager.getInstance().getPersistenceStorage()
+				.setReuseTransaction(true);
+		
 		// final house keeping
 		PersistenceManager.getInstance().getPersistenceStorage().houseKeeping();
 	}
