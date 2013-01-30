@@ -154,11 +154,19 @@ public class SpssStatsImportRunnable implements Runnable {
 	@Override
 	public void run() {
 		try {
+			PersistenceManager.getInstance().getPersistenceStorage()
+					.setReuseTransaction(false);
 			importStats();
 			storeDdi();
 		} catch (Exception e) {
 			Editor.showError(e, null);
 		} finally {
+			try {
+				PersistenceManager.getInstance().getPersistenceStorage()
+						.setReuseTransaction(true);
+			} catch (DDIFtpException e) {
+				// do nothing
+			}
 			cleanUp();
 		}
 	}
@@ -533,9 +541,6 @@ public class SpssStatsImportRunnable implements Runnable {
 		PersistenceManager.getInstance().setWorkingResource(
 				selectedResource.getOrgName());
 
-		PersistenceManager.getInstance().getPersistenceStorage()
-				.setReuseTransaction(true);
-		
 		// delete old stat
 		try {
 			PersistenceManager.getInstance().delete(
@@ -593,9 +598,6 @@ public class SpssStatsImportRunnable implements Runnable {
 			storeVariableStatistics(varStat);
 		}
 
-		PersistenceManager.getInstance().getPersistenceStorage()
-				.setReuseTransaction(true);
-		
 		// final house keeping
 		PersistenceManager.getInstance().getPersistenceStorage().houseKeeping();
 	}
