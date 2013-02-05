@@ -303,10 +303,23 @@ public class SpssStatsImportRunnable implements Runnable {
 			}
 
 			// category value
+			StringBuilder value = new StringBuilder(
+					dFormat.format(spssTopCategories[i].getCategory()
+							.getNumber()));
+
+			// use decimals if defined!
+			Long decimals = new Long(spssTopCategories[i].getCategory()
+					.getDecimals());
+			if (decimals != null && decimals > 0) {
+				value.append(".");
+				for (int j = 0; j < decimals; j++) {
+					value.append("0");
+				}
+			}
+
 			CategoryStatisticsType catStatType = varStatType
 					.addNewCategoryStatistics();
-			catStatType.setCategoryValue(dFormat.format(spssTopCategories[i]
-					.getCategory().getNumber()));
+			catStatType.setCategoryValue(value.toString());
 
 			// missing
 			boolean isMissing = groupText.equals("Missing");
@@ -522,6 +535,17 @@ public class SpssStatsImportRunnable implements Runnable {
 
 	private String getSpssPivotTableByVariableName(String variableName)
 			throws DDIFtpException, Exception {
+		String result = getSpssPivotTableByVariableNameImpl(variableName);
+		if (result.equals("")) {
+			return getSpssPivotTableByVariableNameImpl(variableName
+					.toLowerCase());
+		} else {
+			return result;
+		}
+	}
+
+	String getSpssPivotTableByVariableNameImpl(String variableName)
+			throws DDIFtpException, Exception {
 		String doc = PersistenceManager.getInstance().getResourcePath();
 
 		Formatter formatter = new Formatter();
@@ -529,6 +553,7 @@ public class SpssStatsImportRunnable implements Runnable {
 				"ddieditor:getPivotTable(\"%1$s\", \"Frequencies\", \"%2$s\")",
 				doc.substring(5, doc.length() - 2), variableName);
 
+		// TODO variableName can be lower case in oxml output doo spss!
 		List<String> result = PersistenceManager.getInstance()
 				.getPersistenceStorage()
 				.query(omsFreqQueryFunction + formatter.toString());
