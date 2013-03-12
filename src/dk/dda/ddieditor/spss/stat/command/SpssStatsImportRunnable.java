@@ -284,7 +284,7 @@ public class SpssStatsImportRunnable implements Runnable {
 	private void createCategoryStatisticsCodes(
 			VariableStatisticsType varStatType, XmlObject spssPivotTableDoc,
 			String groupText) throws Exception {
-		// top spps categories
+		// top spss categories
 		CategoryDocument[] spssTopCategories = null;
 		XmlObject[] test = spssPivotTableDoc.execQuery(omsLocalCategoryFunction
 				+ " ddieditor:get_category('" + groupText + "')");
@@ -475,13 +475,26 @@ public class SpssStatsImportRunnable implements Runnable {
 	private void createTotalSummaryStatistic(
 			VariableStatisticsType varStatType,
 			PivotTableDocument spssPivotTableDoc) {
+		Category spssTopCategory = null;
+		
+		// variable without missing codes
 		if (spssPivotTableDoc.getPivotTable().getDimension().getCategoryList()
-				.isEmpty()) { // guard
-			return;
+				.isEmpty()) {
+			// top spss categories
+			CategoryDocument[] spssTopCategories = (CategoryDocument[]) spssPivotTableDoc
+					.execQuery(omsLocalCategoryFunction
+							+ " ddieditor:get_category('Valid')");
+			if (spssTopCategories.length == 0) { // guard
+				return;
+			}
+			spssTopCategory = spssTopCategories[0].getCategory();
+		} 
+		// variable with missing codes
+		else {
+			spssTopCategory = spssPivotTableDoc.getPivotTable().getDimension()
+					.getCategoryList().get(0);
 		}
 
-		Category spssTopCategory = spssPivotTableDoc.getPivotTable()
-				.getDimension().getCategoryList().get(0);
 		for (Category spssCategory : spssTopCategory.getDimension()
 				.getCategoryList()) {
 
@@ -498,7 +511,7 @@ public class SpssStatsImportRunnable implements Runnable {
 				sumStat.setValue(new BigDecimal(number));
 			}
 
-			// total responces
+			// total responses
 			if (spssCategory.getText().equals("Frequency")) {
 				String number = spssCategory.getCell().getText();
 				varStatType.setTotalResponses(new BigInteger(number));
@@ -577,7 +590,6 @@ public class SpssStatsImportRunnable implements Runnable {
 
 		// new stat
 		StatisticsDocument statsDoc = StatisticsDocument.Factory.newInstance();
-		StatisticsType statsType = statsDoc.addNewStatistics();
 
 		// look up physical instance
 		LightXmlObjectListDocument lightXmlObjectListDoc = DdiManager
