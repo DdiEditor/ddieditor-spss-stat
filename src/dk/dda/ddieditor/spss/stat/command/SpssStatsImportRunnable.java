@@ -49,7 +49,6 @@ import org.xml.sax.XMLReader;
 
 import com.spss.xml.spss.oms.CategoryDocument;
 import com.spss.xml.spss.oms.CategoryDocument.Category;
-import com.spss.xml.spss.oms.GroupDocument.Group;
 import com.spss.xml.spss.oms.PivotTableDocument;
 
 import dk.dda.ddieditor.spss.stat.idelement.IdElement;
@@ -86,6 +85,9 @@ import dk.dda.ddieditor.spss.stat.util.SpssStatsToDdiLStatsMap;
 public class SpssStatsImportRunnable implements Runnable {
 	private Log log = LogFactory.getLog(LogType.SYSTEM,
 			SpssStatsImportRunnable.class);
+	private Log errorLog = LogFactory.getLog(LogType.EXCEPTION,
+			SpssStatsImportRunnable.class);
+
 	int doHouseKeeping = 0;
 	public DDIResourceType selectedResource = null;
 	public String inOxmlFile = null;
@@ -98,18 +100,25 @@ public class SpssStatsImportRunnable implements Runnable {
 	String declareNamspaces = "";
 	String omsFreqQueryFunction;
 	String omsLocalCategoryFunction;
+	String omsStatisticsCategoryFunction;
+	String omsStatisticsCategoryValidMissingFunction;
 	String query;
 
 	List<VariableStatisticsDocument> variableStatistics = new ArrayList<VariableStatisticsDocument>();
 	StatisticsType statsType;
 
-	NumberFormat dFormat = NumberFormat.getInstance(Locale.US);
+	NumberFormat numberFormat = NumberFormat
+			.getInstance(new Locale("en", "US"));
 
 	public SpssStatsImportRunnable(DDIResourceType selectedResource,
 			String inOxmlFile) {
 		super();
 		doHouseKeeping = DdiEditorConfig
 				.getInt(DdiEditorConfig.DO_HOUSE_KEEPING_COUNT);
+
+		numberFormat.setRoundingMode(RoundingMode.HALF_EVEN);
+		numberFormat.setGroupingUsed(false);
+
 		this.selectedResource = selectedResource;
 		this.inOxmlFile = inOxmlFile;
 
@@ -122,6 +131,17 @@ public class SpssStatsImportRunnable implements Runnable {
 		declareNamspaces = "declare namespace oms='" + spssNamespace + "';"
 				+ "declare namespace ddieditor= 'http://dda.dk/ddieditor';";
 
+		try {
+			query = DdiManager
+					.getInstance()
+					.getDdi3NamespaceHelper()
+					.addFullyQualifiedNamespaceDeclarationToElements(
+							"PhysicalInstance/Statistics");
+		} catch (DDIFtpException e) {
+			e.printStackTrace();
+		}
+
+		// code representation
 		StringBuilder q = new StringBuilder();
 		q.append(declareNamspaces);
 		q.append("declare function ddieditor:getPivotTable($doc as xs:string, $type as xs:string, $varname as xs:string) as element()* {");
@@ -133,22 +153,29 @@ public class SpssStatsImportRunnable implements Runnable {
 		q.delete(0, q.length());
 		q.append(declareNamspaces);
 		q.append("declare function ddieditor:get_category($group_text) as element()* {");
-		q.append("let $category :=  for $x in $this//oms:group where $x/@text=$group_text return $x/oms:category return $category");
+		q.append("let $category := for $x in $this//oms:group where $x/@text=$group_text return $x/oms:category return $category");
 		q.append("};");
 		omsLocalCategoryFunction = q.toString();
 
-		try {
-			query = DdiManager
-					.getInstance()
-					.getDdi3NamespaceHelper()
-					.addFullyQualifiedNamespaceDeclarationToElements(
-							"PhysicalInstance/Statistics");
-		} catch (DDIFtpException e) {
-			e.printStackTrace();
-		}
+		// numeric representation
+		q.delete(0, q.length());
+		q.append(declareNamspaces);
+		q.append("declare function ddieditor:getPivotTable($doc as xs:string, $type as xs:string, $varname as xs:string) as element()* {");
+		q.append(" let $category := for $x in doc($doc)//oms:outputTree/oms:command/oms:pivotTable[@subType='Statistics']/oms:dimension/oms:category");
+		q.append(" where $x/@text=$type return $x");
+		q.append(" for $y in $category/oms:dimension/oms:category where $y/@varName=$varname");
+		q.append(" return $y};");
+		omsStatisticsCategoryFunction = q.toString();
 
-		dFormat.setRoundingMode(RoundingMode.HALF_EVEN);
-		dFormat.setGroupingUsed(false);
+		//
+		q.delete(0, q.length());
+		q.append(declareNamspaces);
+		q.append("declare function ddieditor:getPivotTable($doc as xs:string, $type as xs:string, $varname as xs:string) as element()* {");
+		q.append(" let $category := for $x in doc($doc)//oms:outputTree/oms:command/oms:pivotTable[@subType='Statistics']/oms:dimension/oms:group/oms:category");
+		q.append(" where $x/@text=$type return $x");
+		q.append(" for $y in $category/oms:dimension/oms:category where $y/@varName=$varname");
+		q.append(" return $y};");
+		omsStatisticsCategoryValidMissingFunction = q.toString();
 	}
 
 	@Override
@@ -219,31 +246,6 @@ public class SpssStatsImportRunnable implements Runnable {
 
 	private void createCodeStatistics(Entry<String, IdElement> entry)
 			throws DDIFtpException, Exception {
-		String spssPivotTableXml = getSpssPivotTableByVariableName(entry
-				.getKey());
-		if (spssPivotTableXml.equals("")) {
-			return;
-		}
-		PivotTableDocument spssPivotTableDoc = PivotTableDocument.Factory
-				.parse(spssPivotTableXml);
-
-		// return if numeric without missing value(s)
-		if (entry.getValue().getRepresentationType()
-				.equals(IdElement.RepresentationType.NUMERIC)) {
-			List<Group> lGroup = spssPivotTableDoc.getPivotTable()
-					.getDimension().getGroupList();
-			boolean missingFound = false;
-			for (Group group : lGroup) {
-				if (group.getText().equals("Missing")) {
-					missingFound = true;
-					break;
-				}
-			}
-			if (!missingFound) {
-				return;
-			}
-		}
-
 		// init ddi
 		VariableStatisticsDocument varStatDoc = VariableStatisticsDocument.Factory
 				.newInstance();
@@ -261,6 +263,115 @@ public class SpssStatsImportRunnable implements Runnable {
 			log.debug("Variable: " + entry.getValue().getId());
 		}
 
+		// create code statistics
+		if (entry.getValue().getRepresentationType()
+				.equals(IdElement.RepresentationType.CODE)) {
+			createCodeRepresentation(varStatType, entry);
+		}
+
+		// create code statistics
+		else if (entry.getValue().getRepresentationType()
+				.equals(IdElement.RepresentationType.NUMERIC)) {
+			createNumericRepresentation(varStatType, entry);
+		}
+
+		// guard
+		else {
+			return;
+		}
+
+		// add
+		variableStatistics.add(varStatDoc);
+	}
+
+	private void createNumericRepresentation(
+			VariableStatisticsType varStatType, Entry<String, IdElement> entry)
+			throws Exception {
+		// valid cases
+		createNumericValidMissingSummaryStatistic(varStatType, entry,
+				SummaryStatisticTypeCodedType.VALID_CASES, "Valid");
+
+		// invalid cases
+		createNumericValidMissingSummaryStatistic(varStatType, entry,
+				SummaryStatisticTypeCodedType.INVALID_CASES, "Missing");
+
+		// min
+		createNumericSummaryStatistic(varStatType, entry,
+				SummaryStatisticTypeCodedType.MINIMUM, "Minimum");
+
+		// max
+		createNumericSummaryStatistic(varStatType, entry,
+				SummaryStatisticTypeCodedType.MAXIMUM, "Maximum");
+
+		// mean
+		createNumericSummaryStatistic(varStatType, entry,
+				SummaryStatisticTypeCodedType.MEAN, "Mean");
+
+		// median
+		createNumericSummaryStatistic(varStatType, entry,
+				SummaryStatisticTypeCodedType.MEDIAN, "Median");
+
+		// mode
+		createNumericSummaryStatistic(varStatType, entry,
+				SummaryStatisticTypeCodedType.MODE, "Mode");
+
+		// std diviation
+		createNumericSummaryStatistic(varStatType, entry,
+				SummaryStatisticTypeCodedType.STANDARD_DEVIATION,
+				"Std. Deviation");
+	}
+
+	private void createNumericSummaryStatistic(
+			VariableStatisticsType varStatType, Entry<String, IdElement> entry,
+			SummaryStatisticTypeCodedType.Enum type, String spssType)
+			throws Exception {
+		String spssStatisticType = getSpssStatisticsCategoryByVariableName(
+				spssType, entry.getKey());
+		if (spssStatisticType != null && spssStatisticType.length() != 0) {
+			try {
+				CategoryDocument cat = CategoryDocument.Factory
+						.parse(spssStatisticType);
+				String number = numberFormat.format(cat.getCategory().getCell()
+						.getNumber());
+				createSummaryStatistic(varStatType, type,
+						new BigDecimal(number));
+			} catch (Exception e) {
+				errorLog.error(entry.getKey(), e);
+			}
+		}
+	}
+
+	private void createNumericValidMissingSummaryStatistic(
+			VariableStatisticsType varStatType, Entry<String, IdElement> entry,
+			SummaryStatisticTypeCodedType.Enum type, String spssType)
+			throws Exception {
+		String spssStatisticType = getSpssStatisticsValidMissingCategoryByVariableName(
+				spssType, entry.getKey());
+		if (spssStatisticType != null && spssStatisticType.length() != 0) {
+			try {
+				CategoryDocument cat = CategoryDocument.Factory
+						.parse(spssStatisticType);
+				String number = numberFormat.format(cat.getCategory().getCell()
+						.getNumber());
+				createSummaryStatistic(varStatType, type,
+						new BigDecimal(number));
+			} catch (Exception e) {
+				errorLog.error(entry.getKey(), e);
+			}
+		}
+	}
+
+	private void createCodeRepresentation(VariableStatisticsType varStatType,
+			Entry<String, IdElement> entry) throws Exception {
+
+		String spssPivotTableXml = getSpssFrequencyPivotTableByVariableName(entry
+				.getKey());
+		if (spssPivotTableXml.equals("")) {
+			return;
+		}
+		PivotTableDocument spssPivotTableDoc = PivotTableDocument.Factory
+				.parse(spssPivotTableXml);
+
 		//
 		// category frequencies
 		//
@@ -276,9 +387,6 @@ public class SpssStatsImportRunnable implements Runnable {
 		//
 		createValidSummaryStatistic(varStatType, spssPivotTableDoc, "Valid");
 		createTotalSummaryStatistic(varStatType, spssPivotTableDoc);
-
-		// add
-		variableStatistics.add(varStatDoc);
 	}
 
 	private void createCategoryStatisticsCodes(
@@ -295,31 +403,20 @@ public class SpssStatsImportRunnable implements Runnable {
 
 		// spss value labels
 		for (int i = 0; i < spssTopCategories.length; i++) {
-			// weed out missing total
+			// weed out missing and missing total
 			if (spssTopCategories[i].getCategory().getText() != null
-					&& spssTopCategories[i].getCategory().getText()
-							.equals("Total")) {
+					&& (spssTopCategories[i].getCategory().getText()
+							.equals("Total") || spssTopCategories[i]
+							.getCategory().getText().equals("System"))) {
 				continue;
 			}
 
 			// category value
-			StringBuilder value = new StringBuilder(
-					dFormat.format(spssTopCategories[i].getCategory()
-							.getNumber()));
-
-			// use decimals if defined!
-			Long decimals = new Long(spssTopCategories[i].getCategory()
-					.getDecimals());
-			if (decimals != null && decimals > 0) {
-				value.append(".");
-				for (int j = 0; j < decimals; j++) {
-					value.append("0");
-				}
-			}
-
+			String value = numberFormat.format(spssTopCategories[i]
+					.getCategory().getNumber());
 			CategoryStatisticsType catStatType = varStatType
 					.addNewCategoryStatistics();
-			catStatType.setCategoryValue(value.toString());
+			catStatType.setCategoryValue(value);
 
 			// missing
 			boolean isMissing = groupText.equals("Missing");
@@ -369,7 +466,8 @@ public class SpssStatsImportRunnable implements Runnable {
 						CategoryStatisticTypeCodedType.FREQUENCY)) {
 					number = spssCategory.getCell().getText();
 				} else {
-					number = dFormat.format(spssCategory.getCell().getNumber());
+					number = numberFormat.format(spssCategory.getCell()
+							.getNumber());
 				}
 				try {
 					catDoc.getCategoryStatistic().setValue(
@@ -452,7 +550,7 @@ public class SpssStatsImportRunnable implements Runnable {
 				summaryStatCode.set(SummaryStatisticTypeCodedType.USE_OTHER);
 				summaryStatCode.setOtherValue("ValidPercent");
 
-				String number = dFormat.format(spssCategory.getCell()
+				String number = numberFormat.format(spssCategory.getCell()
 						.getNumber());
 				sumStat.setValue(new BigDecimal(number));
 			}
@@ -465,7 +563,7 @@ public class SpssStatsImportRunnable implements Runnable {
 				summaryStatCode.set(SummaryStatisticTypeCodedType.USE_OTHER);
 				summaryStatCode.setOtherValue("ValidTotalPercent");
 
-				String number = dFormat.format(spssCategory.getCell()
+				String number = numberFormat.format(spssCategory.getCell()
 						.getNumber());
 				sumStat.setValue(new BigDecimal(number));
 			}
@@ -476,19 +574,23 @@ public class SpssStatsImportRunnable implements Runnable {
 			VariableStatisticsType varStatType,
 			PivotTableDocument spssPivotTableDoc) {
 		Category spssTopCategory = null;
-		
+
 		// variable without missing codes
 		if (spssPivotTableDoc.getPivotTable().getDimension().getCategoryList()
 				.isEmpty()) {
 			// top spss categories
-			CategoryDocument[] spssTopCategories = (CategoryDocument[]) spssPivotTableDoc
+			CategoryDocument[] spssTopCategories = new CategoryDocument[] {};
+			Object[] queryResult = spssPivotTableDoc
 					.execQuery(omsLocalCategoryFunction
 							+ " ddieditor:get_category('Valid')");
+			if (queryResult.length != 0) {
+				spssTopCategories = (CategoryDocument[]) queryResult;
+			}
 			if (spssTopCategories.length == 0) { // guard
 				return;
 			}
 			spssTopCategory = spssTopCategories[0].getCategory();
-		} 
+		}
 		// variable with missing codes
 		else {
 			spssTopCategory = spssPivotTableDoc.getPivotTable().getDimension()
@@ -506,7 +608,7 @@ public class SpssStatsImportRunnable implements Runnable {
 				summaryStatCode.set(SummaryStatisticTypeCodedType.USE_OTHER);
 				summaryStatCode.setOtherValue("Percent");
 
-				String number = dFormat.format(spssCategory.getCell()
+				String number = numberFormat.format(spssCategory.getCell()
 						.getNumber());
 				sumStat.setValue(new BigDecimal(number));
 			}
@@ -517,6 +619,18 @@ public class SpssStatsImportRunnable implements Runnable {
 				varStatType.setTotalResponses(new BigInteger(number));
 			}
 		}
+	}
+
+	private SummaryStatisticType createSummaryStatistic(
+			VariableStatisticsType varStatType,
+			SummaryStatisticTypeCodedType.Enum type, BigDecimal value) {
+		SummaryStatisticType sumStat = createSummaryStatistic(varStatType);
+		SummaryStatisticTypeCodedType summaryStatCode = substituteSummaryStatisticType(sumStat
+				.getSummaryStatisticType());
+		summaryStatCode.set(type);
+
+		sumStat.setValue(value);
+		return sumStat;
 	}
 
 	private SummaryStatisticType createSummaryStatistic(
@@ -532,7 +646,11 @@ public class SpssStatsImportRunnable implements Runnable {
 						SummaryStatisticTypeCodedType.type);
 		sumStatTypeCode.setCodeListAgencyName("DDI");
 		sumStatTypeCode.setCodeListID("Summary Statistic Type");
+		sumStatTypeCode.setCodeListName("SummaryStatisticType");
 		sumStatTypeCode.setCodeListVersionID("1.0");
+		sumStatTypeCode
+				.setCodeListSchemeURN("http://docs.oasis-open.org/codelist/ns/genericode/1.0/");
+		sumStatTypeCode.setCodeListURN("urn:ddi-cv:SummaryStatisticType:1.0");
 
 		return result;
 	}
@@ -546,18 +664,18 @@ public class SpssStatsImportRunnable implements Runnable {
 		return result;
 	}
 
-	private String getSpssPivotTableByVariableName(String variableName)
+	private String getSpssFrequencyPivotTableByVariableName(String variableName)
 			throws DDIFtpException, Exception {
-		String result = getSpssPivotTableByVariableNameImpl(variableName);
+		String result = getSpssFrequencyPivotTableByVariableNameImpl(variableName);
 		if (result.equals("")) {
-			return getSpssPivotTableByVariableNameImpl(variableName
+			return getSpssFrequencyPivotTableByVariableNameImpl(variableName
 					.toLowerCase());
 		} else {
 			return result;
 		}
 	}
 
-	String getSpssPivotTableByVariableNameImpl(String variableName)
+	String getSpssFrequencyPivotTableByVariableNameImpl(String variableName)
 			throws DDIFtpException, Exception {
 		String doc = PersistenceManager.getInstance().getResourcePath();
 
@@ -566,10 +684,71 @@ public class SpssStatsImportRunnable implements Runnable {
 				"ddieditor:getPivotTable(\"%1$s\", \"Frequencies\", \"%2$s\")",
 				doc.substring(5, doc.length() - 2), variableName);
 
-		// TODO variableName can be lower case in oxml output doo spss!
 		List<String> result = PersistenceManager.getInstance()
 				.getPersistenceStorage()
 				.query(omsFreqQueryFunction + formatter.toString());
+
+		formatter.close();
+		return result.isEmpty() ? "" : result.get(0);
+	}
+
+	private String getSpssStatisticsCategoryByVariableName(String statsType,
+			String variableName) throws DDIFtpException, Exception {
+		String result = getSpssStatisticsCategoryByVariableNameImpl(statsType,
+				variableName);
+		if (result.equals("")) {
+			return getSpssStatisticsCategoryByVariableNameImpl(statsType,
+					variableName.toLowerCase());
+		} else {
+			return result;
+		}
+	}
+
+	String getSpssStatisticsCategoryByVariableNameImpl(String statsType,
+			String variableName) throws DDIFtpException, Exception {
+		String doc = PersistenceManager.getInstance().getResourcePath();
+
+		Formatter formatter = new Formatter();
+		formatter.format("ddieditor:getPivotTable(\"%1$s\", \"" + statsType
+				+ "\", \"%2$s\")", doc.substring(5, doc.length() - 2),
+				variableName);
+
+		List<String> result = PersistenceManager.getInstance()
+				.getPersistenceStorage()
+				.query(omsStatisticsCategoryFunction + formatter.toString());
+
+		formatter.close();
+		return result.isEmpty() ? "" : result.get(0);
+	}
+
+	private String getSpssStatisticsValidMissingCategoryByVariableName(
+			String statsType, String variableName) throws DDIFtpException,
+			Exception {
+		String result = getSpssStatisticsCategoryByVariableNameImpl(statsType,
+				variableName);
+		if (result.equals("")) {
+			return getSpssStatisticsValidMissingCategoryByVariableNameImpl(
+					statsType, variableName.toLowerCase());
+		} else {
+			return result;
+		}
+	}
+
+	String getSpssStatisticsValidMissingCategoryByVariableNameImpl(
+			String statsType, String variableName) throws DDIFtpException,
+			Exception {
+		String doc = PersistenceManager.getInstance().getResourcePath();
+
+		Formatter formatter = new Formatter();
+		formatter.format("ddieditor:getPivotTable(\"%1$s\", \"" + statsType
+				+ "\", \"%2$s\")", doc.substring(5, doc.length() - 2),
+				variableName);
+
+		List<String> result = PersistenceManager
+				.getInstance()
+				.getPersistenceStorage()
+				.query(omsStatisticsCategoryValidMissingFunction
+						+ formatter.toString());
 
 		formatter.close();
 		return result.isEmpty() ? "" : result.get(0);
@@ -590,6 +769,7 @@ public class SpssStatsImportRunnable implements Runnable {
 
 		// new stat
 		StatisticsDocument statsDoc = StatisticsDocument.Factory.newInstance();
+		statsDoc.addNewStatistics();
 
 		// look up physical instance
 		LightXmlObjectListDocument lightXmlObjectListDoc = DdiManager
