@@ -724,8 +724,8 @@ public class SpssStatsImportRunnable implements Runnable {
 	private String getSpssStatisticsValidMissingCategoryByVariableName(
 			String statsType, String variableName) throws DDIFtpException,
 			Exception {
-		String result = getSpssStatisticsCategoryByVariableNameImpl(statsType,
-				variableName);
+		String result = getSpssStatisticsValidMissingCategoryByVariableNameImpl(
+				statsType, variableName);
 		if (result.equals("")) {
 			return getSpssStatisticsValidMissingCategoryByVariableNameImpl(
 					statsType, variableName.toLowerCase());
