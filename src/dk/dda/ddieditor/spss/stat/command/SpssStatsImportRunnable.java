@@ -8,13 +8,16 @@ import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Formatter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Map.Entry;
 
 import javax.xml.parsers.SAXParserFactory;
 
 import org.apache.xmlbeans.XmlObject;
+import org.ddialliance.ddi3.xml.xmlbeans.dataset.VariableReferenceDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticType;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticTypeCodedDocument;
@@ -28,11 +31,13 @@ import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.SummaryStatisticTypeCo
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.VariableStatisticsDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.VariableStatisticsType;
 import org.ddialliance.ddi3.xml.xmlbeans.reusable.CodeValueType;
+import org.ddialliance.ddi3.xml.xmlbeans.reusable.IDType;
 import org.ddialliance.ddieditor.logic.identification.IdentificationManager;
 import org.ddialliance.ddieditor.model.DdiManager;
 import org.ddialliance.ddieditor.model.lightxmlobject.LightXmlObjectListDocument;
 import org.ddialliance.ddieditor.model.lightxmlobject.LightXmlObjectType;
 import org.ddialliance.ddieditor.model.resource.DDIResourceType;
+import org.ddialliance.ddieditor.persistenceaccess.ParamatizedXquery;
 import org.ddialliance.ddieditor.persistenceaccess.PersistenceManager;
 import org.ddialliance.ddieditor.persistenceaccess.XQueryInsertKeyword;
 import org.ddialliance.ddieditor.persistenceaccess.filesystem.FilesystemManager;
@@ -44,6 +49,7 @@ import org.ddialliance.ddiftp.util.Translator;
 import org.ddialliance.ddiftp.util.log.Log;
 import org.ddialliance.ddiftp.util.log.LogFactory;
 import org.ddialliance.ddiftp.util.log.LogType;
+import org.eclipse.ui.internal.decorators.LightweightDecoratorManager;
 import org.xml.sax.InputSource;
 import org.xml.sax.XMLReader;
 
@@ -91,6 +97,7 @@ public class SpssStatsImportRunnable implements Runnable {
 	int doHouseKeeping = 0;
 	public DDIResourceType selectedResource = null;
 	public String inOxmlFile = null;
+	public boolean incrementalLoad = false;
 
 	File file;
 	String spssNamespace = "";
@@ -102,7 +109,7 @@ public class SpssStatsImportRunnable implements Runnable {
 	String omsLocalCategoryFunction;
 	String omsStatisticsCategoryFunction;
 	String omsStatisticsCategoryValidMissingFunction;
-	String query;
+	Map<String, XmlObject> varStatisticsMap = new HashMap<String, XmlObject>();
 
 	List<VariableStatisticsDocument> variableStatistics = new ArrayList<VariableStatisticsDocument>();
 	StatisticsType statsType;
@@ -111,7 +118,7 @@ public class SpssStatsImportRunnable implements Runnable {
 			.getInstance(new Locale("en", "US"));
 
 	public SpssStatsImportRunnable(DDIResourceType selectedResource,
-			String inOxmlFile) {
+			String inOxmlFile, boolean incrementalLoad) {
 		super();
 		doHouseKeeping = DdiEditorConfig
 				.getInt(DdiEditorConfig.DO_HOUSE_KEEPING_COUNT);
@@ -121,6 +128,7 @@ public class SpssStatsImportRunnable implements Runnable {
 
 		this.selectedResource = selectedResource;
 		this.inOxmlFile = inOxmlFile;
+		this.incrementalLoad = incrementalLoad;
 
 		// spss namespace to change from spss version
 		// the change is from 21 and onwards
@@ -130,16 +138,6 @@ public class SpssStatsImportRunnable implements Runnable {
 				.get(DdiEditorConfig.SPPS_OMS_XML_NAMESPACE);
 		declareNamspaces = "declare namespace oms='" + spssNamespace + "';"
 				+ "declare namespace ddieditor= 'http://dda.dk/ddieditor';";
-
-		try {
-			query = DdiManager
-					.getInstance()
-					.getDdi3NamespaceHelper()
-					.addFullyQualifiedNamespaceDeclarationToElements(
-							"PhysicalInstance/Statistics");
-		} catch (DDIFtpException e) {
-			e.printStackTrace();
-		}
 
 		// code representation
 		StringBuilder q = new StringBuilder();
@@ -260,7 +258,8 @@ public class SpssStatsImportRunnable implements Runnable {
 						"Variable"));
 
 		if (log.isDebugEnabled()) {
-			log.debug("Variable: " + entry.getValue().getId());
+			log.debug("Variable: " + entry.getKey() + " - "
+					+ entry.getValue().getId());
 		}
 
 		// create code statistics
@@ -758,20 +757,46 @@ public class SpssStatsImportRunnable implements Runnable {
 		PersistenceManager.getInstance().setWorkingResource(
 				selectedResource.getOrgName());
 
-		// delete old stat
+		String query = null;
 		try {
-			PersistenceManager.getInstance().delete(
-					PersistenceManager.getInstance().getResourcePath() + "/"
-							+ query);
-		} catch (Exception e) {
-			// do nothing if stats is null
+			query = DdiManager
+					.getInstance()
+					.getDdi3NamespaceHelper()
+					.addFullyQualifiedNamespaceDeclarationToElements(
+							"PhysicalInstance/Statistics/VariableStatistics");
+		} catch (DDIFtpException e) {
+			e.printStackTrace();
 		}
 
-		// new stat
-		StatisticsDocument statsDoc = StatisticsDocument.Factory.newInstance();
-		statsDoc.addNewStatistics();
+		if (!incrementalLoad) {
+			// full load - delete all old variable statistics
+			try {
+				PersistenceManager.getInstance().delete(
+						PersistenceManager.getInstance().getResourcePath()
+								+ "/" + query);
+			} catch (Exception e) {
+				// do nothing if Statistics is empty
+			}
+		} else {
+			// incremental load
+			// get existing list of VariableStatistics by Variable Reference
+			StatisticsDocument stats = DdiManager.getInstance()
+					.getStatisticsVariableReference();
+			for (VariableStatisticsType varStatictics : stats.getStatistics()
+					.getVariableStatisticsList()) {
+				IDType id = varStatictics.getVariableReference().getIDList()
+						.get(0);
+				varStatisticsMap.put(id.getStringValue(), varStatictics);
+			}
+		}
 
-		// look up physical instance
+		// // new stat
+		// StatisticsDocument statsDoc =
+		// StatisticsDocument.Factory.newInstance();
+		// statsDoc.addNewStatistics();
+
+		// look up physical instance (with Statistics)
+		// - Statistics with or without VariableStatistics
 		LightXmlObjectListDocument lightXmlObjectListDoc = DdiManager
 				.getInstance()
 				.getPhysicalInstancesLight(null, null, null, null);
@@ -783,44 +808,84 @@ public class SpssStatsImportRunnable implements Runnable {
 		LightXmlObjectType lightXmlObject = lightXmlObjectListDoc
 				.getLightXmlObjectList().getLightXmlObjectList().get(0);
 
-		// store stat
-		DdiManager.getInstance().createElement(statsDoc,
-				lightXmlObject.getId(),
-				lightXmlObject.getVersion(),
-				"PhysicalInstance",
-				// parent sub-elements
-				new String[] { "UserID", "VersionRationale",
-						"VersionResponsibility", "PhysicalInstanceModuleName",
-						"Citation", "Fingerprint", "Coverage", "OtherMaterial",
-						"Note", "RecordLayoutReference",
-						"DataFileIdentification", "GrossFileStructure",
-						"ProprietaryInfo" },
-				// stop elements
-				new String[] { "ByteOrder" },
-				// jump elements
-				new String[] { "Statistics" });
-
-		// store var stat
+		// store VariableStatistics
 		int count = 0;
 		for (VariableStatisticsDocument varStat : variableStatistics) {
-			if (count == doHouseKeeping) {
-				// clean logs
-				PersistenceManager.getInstance().getPersistenceStorage()
-						.houseKeeping();
-				count = 0;
-			} else {
-				count++;
-			}
+			// only store if statistics available
+			if (varStat.getVariableStatistics().getSummaryStatisticList().size() > 0) {
+				String id = varStat.getVariableStatistics()
+						.getVariableReference().getIDList().get(0)
+						.getStringValue();
 
-			storeVariableStatistics(varStat);
+				// delete if incremental load
+				if (varStatisticsMap.get(id) != null) {
+					deleteVariableStatistics(id);
+				}
+
+				if (count == doHouseKeeping) {
+					// clean logs
+					PersistenceManager.getInstance().getPersistenceStorage()
+							.houseKeeping();
+					count = 0;
+				} else {
+					count++;
+				}
+
+				storeVariableStatistics(varStat);
+
+			}
 		}
 
 		// final house keeping
 		PersistenceManager.getInstance().getPersistenceStorage().houseKeeping();
 	}
 
+	private void deleteVariableStatistics(String varID) throws Exception {
+
+		StringBuffer q = new StringBuffer();
+		q.append("for $variableStatistics in ");
+		q.append(PersistenceManager.getInstance().getResourcePath() + "/");
+		q.append(DdiManager
+				.getInstance()
+				.getDdi3NamespaceHelper()
+				.addFullyQualifiedNamespaceDeclarationToElements(
+						"VariableStatistics")
+				+ " ");
+		q.append("for $variableReference in $variableStatistics/");
+		q.append(DdiManager
+				.getInstance()
+				.getDdi3NamespaceHelper()
+				.addFullyQualifiedNamespaceDeclarationToElements(
+						"physicalinstance__VariableReference")
+				+ " ");
+		q.append("where $variableReference/");
+		q.append(DdiManager.getInstance().getDdi3NamespaceHelper()
+				.addFullyQualifiedNamespaceDeclarationToElements("ID"));
+		q.append(" = '" + varID + "' ");
+		q.append("return ( delete node $variableStatistics )");
+
+		String location = q.toString();
+
+		PersistenceManager.getInstance().delete(location);
+	}
+
 	private void storeVariableStatistics(VariableStatisticsDocument varStat)
 			throws Exception {
+		System.out.println("VariableStatistics for: "
+				+ varStat.getVariableStatistics().getVariableReference()
+						.getIDList().get(0).getStringValue());
+
+		String query = null;
+		try {
+			query = DdiManager
+					.getInstance()
+					.getDdi3NamespaceHelper()
+					.addFullyQualifiedNamespaceDeclarationToElements(
+							"PhysicalInstance/Statistics");
+		} catch (DDIFtpException e) {
+			e.printStackTrace();
+		}
+
 		PersistenceManager.getInstance().insert(
 				DdiManager
 						.getInstance()

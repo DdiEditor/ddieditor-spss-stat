@@ -25,6 +25,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.FileDialog;
 import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Text;
+import org.eclipse.swt.widgets.Widget;
 import org.eclipse.ui.PlatformUI;
 
 /*
@@ -57,6 +58,7 @@ public class SpssStatsWizard extends Wizard {
 
 	public DDIResourceType selectedResource = null;
 	public String inOxmlFile = null;
+	public boolean incrementalLoad = false;
 
 	@Override
 	public boolean performFinish() {
@@ -180,6 +182,22 @@ public class SpssStatsWizard extends Wizard {
 					}
 				});
 			}
+			
+			// Full or incremental load of Statistics
+			Button loadTypeButton = editor
+					.createCheckBox(group, "", "Incremental load");
+			loadTypeButton.setSelection(false);
+			loadTypeButton.addSelectionListener(new SelectionListener() {
+				@Override
+				public void widgetSelected(SelectionEvent e) {
+					incrementalLoad = ((Button) e.widget).getSelection();
+				}
+
+				@Override
+				public void widgetDefaultSelected(SelectionEvent e) {
+					// do nothing
+				}
+			});
 
 			// finalize
 			setControl(group);
