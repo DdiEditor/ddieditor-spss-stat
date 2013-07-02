@@ -184,8 +184,9 @@ public class SpssStatsWizard extends Wizard {
 			}
 			
 			// Full or incremental load of Statistics
-			Button loadTypeButton = editor
-					.createCheckBox(group, "", "Incremental load");
+			Button loadTypeButton = editor.createCheckBox(group, "", Translator
+					.trans("spssstat.option.incrementalload",
+							pathText.getText()));
 			loadTypeButton.setSelection(false);
 			loadTypeButton.addSelectionListener(new SelectionListener() {
 				@Override
