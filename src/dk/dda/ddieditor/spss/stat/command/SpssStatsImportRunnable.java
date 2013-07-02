@@ -790,11 +790,6 @@ public class SpssStatsImportRunnable implements Runnable {
 			}
 		}
 
-		// // new stat
-		// StatisticsDocument statsDoc =
-		// StatisticsDocument.Factory.newInstance();
-		// statsDoc.addNewStatistics();
-
 		// look up physical instance (with Statistics)
 		// - Statistics with or without VariableStatistics
 		LightXmlObjectListDocument lightXmlObjectListDoc = DdiManager
@@ -871,10 +866,6 @@ public class SpssStatsImportRunnable implements Runnable {
 
 	private void storeVariableStatistics(VariableStatisticsDocument varStat)
 			throws Exception {
-		System.out.println("VariableStatistics for: "
-				+ varStat.getVariableStatistics().getVariableReference()
-						.getIDList().get(0).getStringValue());
-
 		String query = null;
 		try {
 			query = DdiManager
