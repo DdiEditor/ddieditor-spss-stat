@@ -222,7 +222,7 @@ public class SpssStatsImportRunnable implements Runnable {
         Logger logger = Logger.getLogger("ddieditor");  
         FileHandler fh;         
         try {  
-          fh = new FileHandler("C:/ddieditor/log/ddieditor.log");  
+          fh = new FileHandler("C:/ddieditor/logs/ddieditor.log");  
 //            fh = new FileHandler("/home/dak/ddieditor.log");  
             logger.addHandler(fh);  
             //logger.setLevel(Level.ALL);  
@@ -239,6 +239,7 @@ public class SpssStatsImportRunnable implements Runnable {
         } catch (Exception e) {
 			// TODO: handle exception
         	logger.info("Xerces exception:"+e.getMessage());
+        	
 		}
 		logger.info("Parse VariableShort(2)");
 		// dak
@@ -253,6 +254,7 @@ public class SpssStatsImportRunnable implements Runnable {
 
 		// freq pivot table
 		for (Entry<String, IdElement> entry : contentHandler.result.entrySet()) {
+			logger.info(entry.getValue().getName());
 			if (entry.getValue().getRepresentationType() == null) { // guard
 				throw new DDIFtpException(Translator.trans(
 						"spssstat.error.noreptypedef", new Object[] {
