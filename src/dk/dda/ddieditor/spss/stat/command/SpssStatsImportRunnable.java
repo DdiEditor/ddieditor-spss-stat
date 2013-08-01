@@ -2,6 +2,7 @@ package dk.dda.ddieditor.spss.stat.command;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -13,6 +14,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.logging.FileHandler;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 import javax.xml.parsers.SAXParserFactory;
 
@@ -195,7 +199,7 @@ public class SpssStatsImportRunnable implements Runnable {
 			cleanUp();
 		}
 	}
-
+	
 	public void importStats() throws Exception {
 		// stat file
 		file = new File(inOxmlFile);
@@ -213,8 +217,32 @@ public class SpssStatsImportRunnable implements Runnable {
 		xmlReader.setContentHandler(contentHandler);
 		InputSource is = new InputSource(new ByteArrayInputStream(
 				queryResult.getBytes()));
-		xmlReader.parse(is);
-
+		// dak
+		System.out.println("Parse VariableShort(1)");
+        Logger logger = Logger.getLogger("ddieditor");  
+        FileHandler fh;         
+        try {  
+          fh = new FileHandler("C:/Temp/ddieditor.log");  
+//            fh = new FileHandler("/home/dak/ddieditor.log");  
+            logger.addHandler(fh);  
+            //logger.setLevel(Level.ALL);  
+            SimpleFormatter formatter = new SimpleFormatter();  
+            fh.setFormatter(formatter);
+        } catch (SecurityException e) {  
+            e.printStackTrace();  
+        } catch (IOException e) {  
+            e.printStackTrace();  
+        }  
+        logger.info(queryResult); 
+        try {
+    		xmlReader.parse(is);
+        } catch (Exception e) {
+			// TODO: handle exception
+        	System.out.println("Xerces exception:"+e.getMessage());
+		}
+		System.out.println("Parse VariableShort(2)");
+		// dak
+		
 		// free resources
 		is = null;
 		queryResult = null;
