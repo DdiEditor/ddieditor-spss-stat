@@ -222,7 +222,7 @@ public class SpssStatsImportRunnable implements Runnable {
         Logger logger = Logger.getLogger("ddieditor");  
         FileHandler fh;         
         try {  
-          fh = new FileHandler("C:/Temp/ddieditor.log");  
+          fh = new FileHandler("C:/ddieditor/log/ddieditor.log");  
 //            fh = new FileHandler("/home/dak/ddieditor.log");  
             logger.addHandler(fh);  
             //logger.setLevel(Level.ALL);  
@@ -238,9 +238,9 @@ public class SpssStatsImportRunnable implements Runnable {
     		xmlReader.parse(is);
         } catch (Exception e) {
 			// TODO: handle exception
-        	System.out.println("Xerces exception:"+e.getMessage());
+        	logger.info("Xerces exception:"+e.getMessage());
 		}
-		System.out.println("Parse VariableShort(2)");
+		logger.info("Parse VariableShort(2)");
 		// dak
 		
 		// free resources
