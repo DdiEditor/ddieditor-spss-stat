@@ -2,7 +2,6 @@ package dk.dda.ddieditor.spss.stat.command;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -14,14 +13,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.logging.FileHandler;
-import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 
 import javax.xml.parsers.SAXParserFactory;
 
 import org.apache.xmlbeans.XmlObject;
-import org.ddialliance.ddi3.xml.xmlbeans.dataset.VariableReferenceDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticType;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticTypeCodedDocument;
@@ -41,7 +36,6 @@ import org.ddialliance.ddieditor.model.DdiManager;
 import org.ddialliance.ddieditor.model.lightxmlobject.LightXmlObjectListDocument;
 import org.ddialliance.ddieditor.model.lightxmlobject.LightXmlObjectType;
 import org.ddialliance.ddieditor.model.resource.DDIResourceType;
-import org.ddialliance.ddieditor.persistenceaccess.ParamatizedXquery;
 import org.ddialliance.ddieditor.persistenceaccess.PersistenceManager;
 import org.ddialliance.ddieditor.persistenceaccess.XQueryInsertKeyword;
 import org.ddialliance.ddieditor.persistenceaccess.filesystem.FilesystemManager;
@@ -53,7 +47,6 @@ import org.ddialliance.ddiftp.util.Translator;
 import org.ddialliance.ddiftp.util.log.Log;
 import org.ddialliance.ddiftp.util.log.LogFactory;
 import org.ddialliance.ddiftp.util.log.LogType;
-import org.eclipse.ui.internal.decorators.LightweightDecoratorManager;
 import org.xml.sax.InputSource;
 import org.xml.sax.XMLReader;
 
@@ -199,7 +192,7 @@ public class SpssStatsImportRunnable implements Runnable {
 			cleanUp();
 		}
 	}
-	
+
 	public void importStats() throws Exception {
 		// stat file
 		file = new File(inOxmlFile);
@@ -217,33 +210,8 @@ public class SpssStatsImportRunnable implements Runnable {
 		xmlReader.setContentHandler(contentHandler);
 		InputSource is = new InputSource(new ByteArrayInputStream(
 				queryResult.getBytes()));
-		// dak
-		System.out.println("Parse VariableShort(1)");
-        Logger logger = Logger.getLogger("ddieditor");  
-        FileHandler fh;         
-        try {  
-          fh = new FileHandler("C:/ddieditor/logs/ddieditor.log");  
-//            fh = new FileHandler("/home/dak/ddieditor.log");  
-            logger.addHandler(fh);  
-            //logger.setLevel(Level.ALL);  
-            SimpleFormatter formatter = new SimpleFormatter();  
-            fh.setFormatter(formatter);
-        } catch (SecurityException e) {  
-            e.printStackTrace();  
-        } catch (IOException e) {  
-            e.printStackTrace();  
-        }  
-        logger.info(queryResult); 
-        try {
-    		xmlReader.parse(is);
-        } catch (Exception e) {
-			// TODO: handle exception
-        	logger.info("Xerces exception:"+e.getMessage());
-        	
-		}
-		logger.info("Parse VariableShort(2)");
-		// dak
-		
+		xmlReader.parse(is);
+
 		// free resources
 		is = null;
 		queryResult = null;
@@ -254,7 +222,6 @@ public class SpssStatsImportRunnable implements Runnable {
 
 		// freq pivot table
 		for (Entry<String, IdElement> entry : contentHandler.result.entrySet()) {
-			logger.info(entry.getValue().getName());
 			if (entry.getValue().getRepresentationType() == null) { // guard
 				throw new DDIFtpException(Translator.trans(
 						"spssstat.error.noreptypedef", new Object[] {
@@ -837,7 +804,8 @@ public class SpssStatsImportRunnable implements Runnable {
 		int count = 0;
 		for (VariableStatisticsDocument varStat : variableStatistics) {
 			// only store if statistics available
-			if (varStat.getVariableStatistics().getSummaryStatisticList().size() > 0) {
+			if (varStat.getVariableStatistics().getSummaryStatisticList()
+					.size() > 0) {
 				String id = varStat.getVariableStatistics()
 						.getVariableReference().getIDList().get(0)
 						.getStringValue();
