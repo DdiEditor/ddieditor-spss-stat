@@ -32,7 +32,7 @@ import org.xml.sax.helpers.DefaultHandler;
  */
 public class IdElementContentHandler extends DefaultHandler {
 	String idElm = "IdElement";
-	String[] attNames = { "id", "version", "agency", "name", "repType" };
+	String[] attNames = { "id", "version", "agency", "name", "repType", "repRef" };
 	public HashMap<String, IdElement> result = new HashMap<String, IdElement>();
 
 	@Override
@@ -46,7 +46,7 @@ public class IdElementContentHandler extends DefaultHandler {
 							attributes.getValue(uri, attNames[1]), attributes
 									.getValue(uri, attNames[2]), attributes
 									.getValue(uri, attNames[3]), attributes
-									.getValue(uri, attNames[4])));
+									.getValue(uri, attNames[4]), attributes.getValue(uri, attNames[5])));
 		}
 	}
 }

@@ -9,6 +9,7 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Formatter;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -17,6 +18,9 @@ import java.util.Map.Entry;
 import javax.xml.parsers.SAXParserFactory;
 
 import org.apache.xmlbeans.XmlObject;
+import org.ddialliance.ddi3.xml.xmlbeans.logicalproduct.CodeSchemeDocument;
+import org.ddialliance.ddi3.xml.xmlbeans.logicalproduct.CodeType;
+import org.ddialliance.ddi3.xml.xmlbeans.logicalproduct.VariableDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticType;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticTypeCodedDocument;
@@ -265,7 +269,7 @@ public class SpssStatsImportRunnable implements Runnable {
 			createCodeRepresentation(varStatType, entry);
 		}
 
-		// create code statistics
+		// create numeric statistics
 		else if (entry.getValue().getRepresentationType()
 				.equals(IdElement.RepresentationType.NUMERIC)) {
 			createNumericRepresentation(varStatType, entry);
@@ -371,12 +375,12 @@ public class SpssStatsImportRunnable implements Runnable {
 		//
 		// category frequencies
 		//
-		createCategoryStatisticsCodes(varStatType, spssPivotTableDoc, "-1");
+		createCategoryStatisticsCodes(entry, varStatType, spssPivotTableDoc, "-1");
 
 		//
 		// missing frequencies
 		//
-		createCategoryStatisticsCodes(varStatType, spssPivotTableDoc, "Missing");
+		createCategoryStatisticsCodes(entry, varStatType, spssPivotTableDoc, "Missing");
 
 		//
 		// summary statistics
@@ -384,10 +388,38 @@ public class SpssStatsImportRunnable implements Runnable {
 		createValidSummaryStatistic(varStatType, spssPivotTableDoc, "Valid");
 		createTotalSummaryStatistic(varStatType, spssPivotTableDoc);
 	}
+	
+	private List<CodeType> getCodeList(Entry<String, IdElement> entry) throws DDIFtpException {
+		CodeSchemeDocument codeScheme = null;
+		try {
+			PersistenceManager.getInstance().setWorkingResource(
+					this.selectedResource.getOrgName());
+			codeScheme = DdiManager.getInstance().getCodeScheme(
+					entry.getValue().getRepresentationRef(), "1.0.0",
+					null, null);
+		} catch (DDIFtpException e) {
+			throw new DDIFtpException(e);
+		} catch (Exception e) {
+			throw new DDIFtpException(e);
+		} finally {
+			try {
+				PersistenceManager.getInstance().setWorkingResource(
+						this.file.getName());
+			} catch (DDIFtpException e) {
+				// do nothing
+			}
+		}
+		return (codeScheme.getCodeScheme().getCodeList());
+	}
 
-	private void createCategoryStatisticsCodes(
+	private void createCategoryStatisticsCodes(Entry<String, IdElement> entry,
 			VariableStatisticsType varStatType, XmlObject spssPivotTableDoc,
 			String groupText) throws Exception {
+		List<CodeType> codes = null;
+		if (groupText.equals("-1")) {
+			codes = getCodeList(entry);
+		}
+		
 		// top spss categories
 		CategoryDocument[] spssTopCategories = null;
 		XmlObject[] test = spssPivotTableDoc.execQuery(omsLocalCategoryFunction
@@ -398,6 +430,7 @@ public class SpssStatsImportRunnable implements Runnable {
 		spssTopCategories = (CategoryDocument[]) test;
 
 		// spss value labels
+		int iCode = 0;
 		for (int i = 0; i < spssTopCategories.length; i++) {
 			// weed out missing and missing total
 			if (spssTopCategories[i].getCategory().getText() != null
@@ -410,6 +443,30 @@ public class SpssStatsImportRunnable implements Runnable {
 			// category value
 			String value = numberFormat.format(spssTopCategories[i]
 					.getCategory().getNumber());
+			
+			// check if all codes present in spss statistics
+			while (groupText.equals("-1") && !value.equals(codes.get(iCode).getValue())) {
+				// Difference in code list insert zero category statistics
+				CategoryStatisticsType catStatsType = varStatType
+						.addNewCategoryStatistics();
+				// category value
+				catStatsType.setCategoryValue(codes.get(i).getValue());
+				// category statistic (Percent, ValidPercent and Frequency)
+				CategoryStatisticType[] cats = new CategoryStatisticType[3];				
+				cats[0] = createNullCategoryStatisticTypeCoded(
+						CategoryStatisticTypeCodedType.PERCENT.toString())
+						.getCategoryStatistic();
+				cats[1] = createNullCategoryStatisticTypeCoded(
+						CategoryStatisticTypeCodedType.USE_OTHER.toString())
+						.getCategoryStatistic();
+				cats[2] = createNullCategoryStatisticTypeCoded(
+						CategoryStatisticTypeCodedType.FREQUENCY.toString())
+						.getCategoryStatistic();
+				catStatsType.setCategoryStatisticArray(cats);
+				
+				iCode++;
+			}
+			// change to CategoryValue and keep in seperate list
 			CategoryStatisticsType catStatType = varStatType
 					.addNewCategoryStatistics();
 			catStatType.setCategoryValue(value);
@@ -506,6 +563,7 @@ public class SpssStatsImportRunnable implements Runnable {
 			} else {
 				catStatType.setCategoryStatisticArray(cats);
 			}
+			iCode++;
 		}
 	}
 
@@ -522,6 +580,25 @@ public class SpssStatsImportRunnable implements Runnable {
 		catStatCodeType.setCodeListID("Category Statistic Type");
 		catStatCodeType.setCodeListVersionID("1.0");
 		return catStatCodeType;
+	}
+
+	private CategoryStatisticDocument createNullCategoryStatisticTypeCoded(
+			String type) {		
+		CategoryStatisticDocument catDoc = CategoryStatisticDocument.Factory.newInstance();
+		catDoc.addNewCategoryStatistic();
+		// - type
+		CategoryStatisticTypeCodedType catStatCodeType = createCategoryStatisticTypeCoded(catDoc
+				.getCategoryStatistic());
+		catStatCodeType.set(SpssStatsToDdiLStatsMap.categoryStatisticTypeMap.get(type));
+		if (type.equals(CategoryStatisticTypeCodedType.USE_OTHER.toString())) {
+			catStatCodeType.setOtherValue("ValidPercent");
+		}
+		// - value
+		catDoc.getCategoryStatistic().setValue(
+				new BigDecimal(0));
+		// - weight
+		catDoc.getCategoryStatistic().setWeighted(false);
+		return catDoc;
 	}
 
 	private void createValidSummaryStatistic(

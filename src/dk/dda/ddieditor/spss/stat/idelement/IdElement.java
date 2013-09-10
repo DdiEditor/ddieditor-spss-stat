@@ -1,5 +1,8 @@
 package dk.dda.ddieditor.spss.stat.idelement;
 
+import org.ddialliance.ddi3.xml.xmlbeans.logicalproduct.CodeSchemeReferenceType;
+import org.ddialliance.ddi3.xml.xmlbeans.reusable.ReferenceType;
+
 /*
  * Copyright 2012 Danish Data Archive (http://www.dda.dk) 
  * 
@@ -48,9 +51,10 @@ public class IdElement {
 
 	String id, version, name, agency;
 	RepresentationType representationType;
+	String representationRef;
 
 	public IdElement(String id, String version, String agency, String name,
-			String repType) {
+			String repType, String repRef) {
 		super();
 		this.id = id;
 		this.version = version;
@@ -58,6 +62,7 @@ public class IdElement {
 		this.agency = agency;
 		this.representationType = RepresentationType
 				.getRepresentationType(repType);
+		this.representationRef = repRef;
 	}
 
 	public String getId() {
@@ -100,6 +105,14 @@ public class IdElement {
 		this.representationType = representationType;
 	}
 
+	public String getRepresentationRef() {
+		return representationRef;
+	}
+
+	public void setRepresentationRef(String representationRef) {
+		this.representationRef = representationRef;
+	}
+
 	@Override
 	public String toString() {
 		StringBuffer sb = new StringBuffer();
@@ -113,6 +126,8 @@ public class IdElement {
 		sb.append(name);
 		sb.append(", repType: ");
 		sb.append(representationType);
+		sb.append(", repRef: ");
+		sb.append(representationRef);
 
 		return sb.toString();
 	}
