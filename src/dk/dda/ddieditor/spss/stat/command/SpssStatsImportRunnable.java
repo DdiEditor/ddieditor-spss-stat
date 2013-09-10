@@ -445,14 +445,15 @@ public class SpssStatsImportRunnable implements Runnable {
 					.getCategory().getNumber());
 			
 			// check if all codes present in spss statistics
-			while (groupText.equals("-1") && !value.equals(codes.get(iCode).getValue())) {
+			while (groupText.equals("-1") && iCode < codes.size()
+					&& !value.equals(codes.get(iCode).getValue())) {
 				// Difference in code list insert zero category statistics
 				CategoryStatisticsType catStatsType = varStatType
 						.addNewCategoryStatistics();
 				// category value
 				catStatsType.setCategoryValue(codes.get(i).getValue());
 				// category statistic (Percent, ValidPercent and Frequency)
-				CategoryStatisticType[] cats = new CategoryStatisticType[3];				
+				CategoryStatisticType[] cats = new CategoryStatisticType[3];
 				cats[0] = createNullCategoryStatisticTypeCoded(
 						CategoryStatisticTypeCodedType.PERCENT.toString())
 						.getCategoryStatistic();
@@ -463,7 +464,7 @@ public class SpssStatsImportRunnable implements Runnable {
 						CategoryStatisticTypeCodedType.FREQUENCY.toString())
 						.getCategoryStatistic();
 				catStatsType.setCategoryStatisticArray(cats);
-				
+
 				iCode++;
 			}
 			// change to CategoryValue and keep in seperate list
