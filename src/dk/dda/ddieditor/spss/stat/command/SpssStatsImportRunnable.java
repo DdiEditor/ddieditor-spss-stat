@@ -451,7 +451,7 @@ public class SpssStatsImportRunnable implements Runnable {
 				CategoryStatisticsType catStatsType = varStatType
 						.addNewCategoryStatistics();
 				// category value
-				catStatsType.setCategoryValue(codes.get(i).getValue());
+				catStatsType.setCategoryValue(codes.get(iCode).getValue());
 				// category statistic (Percent, ValidPercent and Frequency)
 				CategoryStatisticType[] cats = new CategoryStatisticType[3];
 				cats[0] = createNullCategoryStatisticTypeCoded(
