@@ -411,6 +411,27 @@ public class SpssStatsImportRunnable implements Runnable {
 		}
 		return (codeScheme.getCodeScheme().getCodeList());
 	}
+	
+	private void addZeroCategoryStatistics(VariableStatisticsType varStatType, 
+			String categoryValue) {
+		// Difference in code list insert zero category statistics
+		CategoryStatisticsType catStatsType = varStatType
+				.addNewCategoryStatistics();
+		// category value
+		catStatsType.setCategoryValue(categoryValue);
+		// category statistic (Percent, ValidPercent and Frequency)
+		CategoryStatisticType[] cats = new CategoryStatisticType[3];
+		cats[0] = createNullCategoryStatisticTypeCoded(
+				CategoryStatisticTypeCodedType.PERCENT.toString())
+				.getCategoryStatistic();
+		cats[1] = createNullCategoryStatisticTypeCoded(
+				CategoryStatisticTypeCodedType.USE_OTHER.toString())
+				.getCategoryStatistic();
+		cats[2] = createNullCategoryStatisticTypeCoded(
+				CategoryStatisticTypeCodedType.FREQUENCY.toString())
+				.getCategoryStatistic();
+		catStatsType.setCategoryStatisticArray(cats);		
+	}
 
 	private void createCategoryStatisticsCodes(Entry<String, IdElement> entry,
 			VariableStatisticsType varStatType, XmlObject spssPivotTableDoc,
@@ -448,23 +469,7 @@ public class SpssStatsImportRunnable implements Runnable {
 			while (groupText.equals("-1") && iCode < codes.size()
 					&& !value.equals(codes.get(iCode).getValue())) {
 				// Difference in code list insert zero category statistics
-				CategoryStatisticsType catStatsType = varStatType
-						.addNewCategoryStatistics();
-				// category value
-				catStatsType.setCategoryValue(codes.get(iCode).getValue());
-				// category statistic (Percent, ValidPercent and Frequency)
-				CategoryStatisticType[] cats = new CategoryStatisticType[3];
-				cats[0] = createNullCategoryStatisticTypeCoded(
-						CategoryStatisticTypeCodedType.PERCENT.toString())
-						.getCategoryStatistic();
-				cats[1] = createNullCategoryStatisticTypeCoded(
-						CategoryStatisticTypeCodedType.USE_OTHER.toString())
-						.getCategoryStatistic();
-				cats[2] = createNullCategoryStatisticTypeCoded(
-						CategoryStatisticTypeCodedType.FREQUENCY.toString())
-						.getCategoryStatistic();
-				catStatsType.setCategoryStatisticArray(cats);
-
+				addZeroCategoryStatistics(varStatType, codes.get(iCode).getValue());
 				iCode++;
 			}
 			// change to CategoryValue and keep in seperate list
@@ -564,6 +569,12 @@ public class SpssStatsImportRunnable implements Runnable {
 			} else {
 				catStatType.setCategoryStatisticArray(cats);
 			}
+			iCode++;
+		}
+		while (groupText.equals("-1") && iCode < codes.size()) {
+			// add insert zero category statistics for trailing unused
+			// responses
+			addZeroCategoryStatistics(varStatType, codes.get(iCode).getValue());
 			iCode++;
 		}
 	}
