@@ -604,6 +604,7 @@ public class SpssStatsImportRunnable implements Runnable {
 		catStatCodeType.set(SpssStatsToDdiLStatsMap.categoryStatisticTypeMap.get(type));
 		if (type.equals(CategoryStatisticTypeCodedType.USE_OTHER.toString())) {
 			catStatCodeType.setOtherValue("ValidPercent");
+			catStatCodeType.setStringValue(type);
 		}
 		// - value
 		catDoc.getCategoryStatistic().setValue(
