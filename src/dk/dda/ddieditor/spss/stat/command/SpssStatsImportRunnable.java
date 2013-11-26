@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import javax.xml.parsers.SAXParserFactory;
 
@@ -412,6 +413,35 @@ public class SpssStatsImportRunnable implements Runnable {
 		return (codeScheme.getCodeScheme().getCodeList());
 	}
 	
+	private Map<String, String> getCodeMap(Entry<String, IdElement> entry) throws DDIFtpException {
+		CodeSchemeDocument codeScheme = null;
+		Map codeMap = new HashMap<String, String>();
+		try {
+			PersistenceManager.getInstance().setWorkingResource(
+					this.selectedResource.getOrgName());
+			codeScheme = DdiManager.getInstance().getCodeScheme(
+					entry.getValue().getRepresentationRef(), "1.0.0",
+					null, null);
+		} catch (DDIFtpException e) {
+			throw new DDIFtpException(e);
+		} catch (Exception e) {
+			throw new DDIFtpException(e);
+		} finally {
+			try {
+				PersistenceManager.getInstance().setWorkingResource(
+						this.file.getName());
+			} catch (DDIFtpException e) {
+				// do nothing
+			}
+		}
+		String value = null;
+		for (int i = 0; i < codeScheme.getCodeScheme().getCodeList().size(); i++) {
+			value = codeScheme.getCodeScheme().getCodeList().get(i).getValue();
+			codeMap.put(value, value);
+		}
+		return(codeMap);
+	}
+	
 	private void addZeroCategoryStatistics(VariableStatisticsType varStatType, 
 			String categoryValue) {
 		// Difference in code list insert zero category statistics
@@ -437,8 +467,10 @@ public class SpssStatsImportRunnable implements Runnable {
 			VariableStatisticsType varStatType, XmlObject spssPivotTableDoc,
 			String groupText) throws Exception {
 		List<CodeType> codes = null;
+		Map<String, String> codeMap = null;
 		if (groupText.equals("-1")) {
 			codes = getCodeList(entry);
+			codeMap = getCodeMap(entry);
 		}
 		
 		// top spss categories
@@ -465,7 +497,15 @@ public class SpssStatsImportRunnable implements Runnable {
 			String value = numberFormat.format(spssTopCategories[i]
 					.getCategory().getNumber());
 			
-			// check if all codes present in spss statistics
+			// check category value against codes
+			if (groupText.equals("-1") && codeMap.get(value) == null) {
+				throw new DDIFtpException(Translator.trans(
+						"spssstat.error.mismatch.categoryvaluecode", entry
+								.getValue().getName(), value),
+						new Throwable());
+			}
+			
+			// check if all codes is present in spss statistics
 			while (groupText.equals("-1") && iCode < codes.size()
 					&& !value.equals(codes.get(iCode).getValue())) {
 				// Difference in code list insert zero category statistics
