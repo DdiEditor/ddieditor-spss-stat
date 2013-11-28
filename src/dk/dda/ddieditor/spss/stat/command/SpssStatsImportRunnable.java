@@ -2,6 +2,10 @@ package dk.dda.ddieditor.spss.stat.command;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -15,6 +19,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
 
 import javax.xml.parsers.SAXParserFactory;
 
@@ -52,7 +60,10 @@ import org.ddialliance.ddiftp.util.Translator;
 import org.ddialliance.ddiftp.util.log.Log;
 import org.ddialliance.ddiftp.util.log.LogFactory;
 import org.ddialliance.ddiftp.util.log.LogType;
+import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
 import org.xml.sax.XMLReader;
 
 import com.spss.xml.spss.oms.CategoryDocument;
@@ -118,6 +129,42 @@ public class SpssStatsImportRunnable implements Runnable {
 
 	NumberFormat numberFormat = NumberFormat
 			.getInstance(new Locale("en", "US"));
+
+	private class OxmlErrorHandler implements ErrorHandler {
+
+		private PrintStream out;
+
+		OxmlErrorHandler(PrintStream out) {
+	        this.out = out;
+	    }
+
+	    private String getParseExceptionInfo(SAXParseException spe) {
+	        String systemId = spe.getSystemId();
+
+	        if (systemId == null) {
+	            systemId = "null";
+	        }
+
+	        String info = "URI=" + systemId + " Line=" 
+	            + spe.getLineNumber() + ": " + spe.getMessage();
+
+	        return info;
+	    }
+
+	    public void warning(SAXParseException spe) throws SAXException {
+	        out.println("Warning: " + getParseExceptionInfo(spe));
+	    }
+	        
+	    public void error(SAXParseException spe) throws SAXException {
+	        String message = "Error: " + getParseExceptionInfo(spe);
+	        throw new SAXException(message);
+	    }
+
+	    public void fatalError(SAXParseException spe) throws SAXException {
+	        String message = "Fatal Error: " + getParseExceptionInfo(spe);
+	        throw new SAXException(message);
+	    }
+	}
 
 	public SpssStatsImportRunnable(DDIResourceType selectedResource,
 			String inOxmlFile, boolean incrementalLoad) {
@@ -197,6 +244,37 @@ public class SpssStatsImportRunnable implements Runnable {
 			cleanUp();
 		}
 	}
+	
+	private void validateOxmlFile(File file) throws DDIFtpException {
+		Charset charset = Charset.forName("UTF-8");
+		CharsetDecoder decoder = charset.newDecoder();
+
+		long total = 0;
+		InputStreamReader isr = null;
+		char[] buf = new char[65536];
+		int chars;
+		try {
+			isr = new InputStreamReader(new FileInputStream(file), decoder);
+			while ((chars = isr.read(buf)) >= 0) {
+				total += chars;
+			}
+		} catch (CharacterCodingException ex) {
+			throw new DDIFtpException("Decoding failed near byte " + total
+					+ " in file " + file.getPath() + ": " + ex.toString(),
+					new Throwable());
+		} catch (IOException ex) {
+			throw new DDIFtpException("Failed to read file " + file.getPath()
+					+ ": " + ex.toString());
+		} finally {
+			if (isr != null)
+				try {
+					isr.close();
+				} catch (IOException ex) {
+					throw new DDIFtpException("Failed to close file: "
+							+ ex.toString());
+				}
+		}
+	}
 
 	public void importStats() throws Exception {
 		// stat file
@@ -210,6 +288,8 @@ public class SpssStatsImportRunnable implements Runnable {
 		// map up result by varname
 		SAXParserFactory spf = SAXParserFactory.newInstance();
 		XMLReader xmlReader = spf.newSAXParser().getXMLReader();
+		ErrorHandler handler = new OxmlErrorHandler(System.err);
+		xmlReader.setErrorHandler(handler );
 
 		IdElementContentHandler contentHandler = new IdElementContentHandler();
 		xmlReader.setContentHandler(contentHandler);
@@ -220,6 +300,9 @@ public class SpssStatsImportRunnable implements Runnable {
 		// free resources
 		is = null;
 		queryResult = null;
+		
+		// validate OxmlFile - UTF-8 expected
+		validateOxmlFile(file);
 
 		// import oxml into dbxml
 		FilesystemManager.getInstance().addResource(file);
@@ -498,12 +581,12 @@ public class SpssStatsImportRunnable implements Runnable {
 					.getCategory().getNumber());
 			
 			// check category value against codes
-			if (groupText.equals("-1") && codeMap.get(value) == null) {
-				throw new DDIFtpException(Translator.trans(
-						"spssstat.error.mismatch.categoryvaluecode", entry
-								.getValue().getName(), value),
-						new Throwable());
-			}
+//			if (groupText.equals("-1") && codeMap.get(value) == null) {
+//				throw new DDIFtpException(Translator.trans(
+//						"spssstat.error.mismatch.categoryvaluecode", entry
+//								.getValue().getName(), value),
+//						new Throwable());
+//			}
 			
 			// check if all codes is present in spss statistics
 			while (groupText.equals("-1") && iCode < codes.size()
