@@ -270,6 +270,7 @@ public class SpssStatsImportRunnable implements Runnable {
 			if (isr != null)
 				try {
 					isr.close();
+					log.debug("Oxml validated - no error found!");
 				} catch (IOException ex) {
 					throw new DDIFtpException("Failed to close file: "
 							+ ex.toString());
