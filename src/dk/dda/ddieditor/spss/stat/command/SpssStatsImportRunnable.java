@@ -152,16 +152,16 @@ public class SpssStatsImportRunnable implements Runnable {
 	    }
 
 	    public void warning(SAXParseException spe) throws SAXException {
-	        out.println("Warning: " + getParseExceptionInfo(spe));
+	        out.println("Warning!: " + getParseExceptionInfo(spe));
 	    }
 	        
 	    public void error(SAXParseException spe) throws SAXException {
-	        String message = "Error: " + getParseExceptionInfo(spe);
+	        String message = "Error!: " + getParseExceptionInfo(spe);
 	        throw new SAXException(message);
 	    }
 
 	    public void fatalError(SAXParseException spe) throws SAXException {
-	        String message = "Fatal Error: " + getParseExceptionInfo(spe);
+	        String message = "Fatal Error!: " + getParseExceptionInfo(spe);
 	        throw new SAXException(message);
 	    }
 	}
@@ -251,7 +251,8 @@ public class SpssStatsImportRunnable implements Runnable {
 
 		long total = 0;
 		InputStreamReader isr = null;
-		char[] buf = new char[65536];
+//		char[] buf = new char[65536];
+		char[] buf = new char[256];
 		int chars;
 		try {
 			isr = new InputStreamReader(new FileInputStream(file), decoder);
@@ -288,8 +289,8 @@ public class SpssStatsImportRunnable implements Runnable {
 		// map up result by varname
 		SAXParserFactory spf = SAXParserFactory.newInstance();
 		XMLReader xmlReader = spf.newSAXParser().getXMLReader();
-		ErrorHandler handler = new OxmlErrorHandler(System.err);
-		xmlReader.setErrorHandler(handler );
+//		ErrorHandler handler = new OxmlErrorHandler(System.err);
+//		xmlReader.setErrorHandler(handler );
 
 		IdElementContentHandler contentHandler = new IdElementContentHandler();
 		xmlReader.setContentHandler(contentHandler);
