@@ -130,42 +130,6 @@ public class SpssStatsImportRunnable implements Runnable {
 	NumberFormat numberFormat = NumberFormat
 			.getInstance(new Locale("en", "US"));
 
-	private class OxmlErrorHandler implements ErrorHandler {
-
-		private PrintStream out;
-
-		OxmlErrorHandler(PrintStream out) {
-	        this.out = out;
-	    }
-
-	    private String getParseExceptionInfo(SAXParseException spe) {
-	        String systemId = spe.getSystemId();
-
-	        if (systemId == null) {
-	            systemId = "null";
-	        }
-
-	        String info = "URI=" + systemId + " Line=" 
-	            + spe.getLineNumber() + ": " + spe.getMessage();
-
-	        return info;
-	    }
-
-	    public void warning(SAXParseException spe) throws SAXException {
-	        out.println("Warning!: " + getParseExceptionInfo(spe));
-	    }
-	        
-	    public void error(SAXParseException spe) throws SAXException {
-	        String message = "Error!: " + getParseExceptionInfo(spe);
-	        throw new SAXException(message);
-	    }
-
-	    public void fatalError(SAXParseException spe) throws SAXException {
-	        String message = "Fatal Error!: " + getParseExceptionInfo(spe);
-	        throw new SAXException(message);
-	    }
-	}
-
 	public SpssStatsImportRunnable(DDIResourceType selectedResource,
 			String inOxmlFile, boolean incrementalLoad) {
 		super();
@@ -251,8 +215,7 @@ public class SpssStatsImportRunnable implements Runnable {
 
 		long total = 0;
 		InputStreamReader isr = null;
-//		char[] buf = new char[65536];
-		char[] buf = new char[256];
+		char[] buf = new char[1];
 		int chars;
 		try {
 			isr = new InputStreamReader(new FileInputStream(file), decoder);
@@ -290,8 +253,6 @@ public class SpssStatsImportRunnable implements Runnable {
 		// map up result by varname
 		SAXParserFactory spf = SAXParserFactory.newInstance();
 		XMLReader xmlReader = spf.newSAXParser().getXMLReader();
-//		ErrorHandler handler = new OxmlErrorHandler(System.err);
-//		xmlReader.setErrorHandler(handler );
 
 		IdElementContentHandler contentHandler = new IdElementContentHandler();
 		xmlReader.setContentHandler(contentHandler);
