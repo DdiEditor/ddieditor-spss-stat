@@ -111,6 +111,8 @@ public class SpssStatsImportRunnable implements Runnable {
 	public DDIResourceType selectedResource = null;
 	public String inOxmlFile = null;
 	public boolean incrementalLoad = false;
+	boolean ignoreInconsistency = false;
+	boolean charsetValidation = false;
 
 	File file;
 	String spssNamespace = "";
@@ -131,7 +133,8 @@ public class SpssStatsImportRunnable implements Runnable {
 			.getInstance(new Locale("en", "US"));
 
 	public SpssStatsImportRunnable(DDIResourceType selectedResource,
-			String inOxmlFile, boolean incrementalLoad) {
+			String inOxmlFile, boolean incrementalLoad,
+			boolean ignoreInconsistency, boolean charsetValidation) {
 		super();
 		doHouseKeeping = DdiEditorConfig
 				.getInt(DdiEditorConfig.DO_HOUSE_KEEPING_COUNT);
@@ -142,6 +145,8 @@ public class SpssStatsImportRunnable implements Runnable {
 		this.selectedResource = selectedResource;
 		this.inOxmlFile = inOxmlFile;
 		this.incrementalLoad = incrementalLoad;
+		this.ignoreInconsistency = ignoreInconsistency;
+		this.charsetValidation = charsetValidation;
 
 		// spss namespace to change from spss version
 		// the change is from 21 and onwards
@@ -223,7 +228,7 @@ public class SpssStatsImportRunnable implements Runnable {
 				total += chars;
 			}
 		} catch (CharacterCodingException ex) {
-			throw new DDIFtpException("Decoding failed near byte " + total
+			throw new DDIFtpException("Decoding failed at byte " + total
 					+ " in file " + file.getPath() + ": " + ex.toString(),
 					new Throwable());
 		} catch (IOException ex) {
@@ -264,8 +269,10 @@ public class SpssStatsImportRunnable implements Runnable {
 		is = null;
 		queryResult = null;
 		
-		// validate OxmlFile - UTF-8 expected
-		validateOxmlFile(file);
+		if (charsetValidation) {
+			// validate OxmlFile - UTF-8 expected
+			validateOxmlFile(file);
+		}
 
 		// import oxml into dbxml
 		FilesystemManager.getInstance().addResource(file);
@@ -544,12 +551,15 @@ public class SpssStatsImportRunnable implements Runnable {
 					.getCategory().getNumber());
 			
 			// check category value against codes
-//			if (groupText.equals("-1") && codeMap.get(value) == null) {
-//				throw new DDIFtpException(Translator.trans(
-//						"spssstat.error.mismatch.categoryvaluecode", entry
-//								.getValue().getName(), value),
-//						new Throwable());
-//			}
+			if (groupText.equals("-1") && codeMap.get(value) == null) {
+				// TODO report inconsistency via report view
+				if (!ignoreInconsistency) {
+					throw new DDIFtpException(Translator.trans(
+							"spssstat.error.mismatch.categoryvaluecode", entry
+									.getValue().getName(), value),
+							new Throwable());
+				}
+			}
 			
 			// check if all codes is present in spss statistics
 			while (groupText.equals("-1") && iCode < codes.size()

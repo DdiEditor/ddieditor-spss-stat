@@ -55,7 +55,9 @@ public class ImportSpssStats extends org.eclipse.core.commands.AbstractHandler {
 			// import
 			final SpssStatsImportRunnable longJob = new SpssStatsImportRunnable(
 					statsWizard.selectedResource, statsWizard.inOxmlFile,
-					statsWizard.incrementalLoad);
+					statsWizard.incrementalLoad,
+					statsWizard.ignoreInconsistency,
+					statsWizard.charSetValidation);
 			try {
 				PlatformUI.getWorkbench().getProgressService()
 						.busyCursorWhile(new IRunnableWithProgress() {

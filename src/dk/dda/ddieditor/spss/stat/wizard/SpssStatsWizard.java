@@ -59,6 +59,8 @@ public class SpssStatsWizard extends Wizard {
 	public DDIResourceType selectedResource = null;
 	public String inOxmlFile = null;
 	public boolean incrementalLoad = false;
+	public boolean ignoreInconsistency = false;
+	public boolean charSetValidation = false;
 
 	@Override
 	public boolean performFinish() {
@@ -192,6 +194,40 @@ public class SpssStatsWizard extends Wizard {
 				@Override
 				public void widgetSelected(SelectionEvent e) {
 					incrementalLoad = ((Button) e.widget).getSelection();
+				}
+
+				@Override
+				public void widgetDefaultSelected(SelectionEvent e) {
+					// do nothing
+				}
+			});
+
+			// SPSS metadata inconsistency check
+			Button inconsistencyButton = editor.createCheckBox(group, "", Translator
+					.trans("spssstat.option.ignoreinconsistency",
+							pathText.getText()));
+			inconsistencyButton.setSelection(false);
+			inconsistencyButton.addSelectionListener(new SelectionListener() {
+				@Override
+				public void widgetSelected(SelectionEvent e) {
+					ignoreInconsistency = ((Button) e.widget).getSelection();
+				}
+
+				@Override
+				public void widgetDefaultSelected(SelectionEvent e) {
+					// do nothing
+				}
+			});
+
+			// character set validation check
+			Button charValidationButton = editor.createCheckBox(group, "", Translator
+					.trans("spssstat.option.charsetvalidation",
+							pathText.getText()));
+			charValidationButton.setSelection(false);
+			charValidationButton.addSelectionListener(new SelectionListener() {
+				@Override
+				public void widgetSelected(SelectionEvent e) {
+					charSetValidation = ((Button) e.widget).getSelection();
 				}
 
 				@Override
