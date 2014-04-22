@@ -21,5 +21,64 @@
          </command>
       </menuContribution>
    </extension>
-
+      <extension
+         point="org.eclipse.ui.views">
+      <view
+            class="dk.dda.ddieditor.spss.stat.view.ProblemView"
+            icon="icons/problem.gif"
+            id="dk.dda.ddieditor.spss.stat.view.ProblemView"
+            name="Problem Import SPSS Statistics"
+            restorable="true">
+      </view>
+   </extension>
+   <extension
+         point="org.eclipse.ui.ide.markerSupport">
+      <markerContentGenerator
+            id="dk.dda.ddieditor.spss.stat.view.problemMarkerContentGenerator"
+            name="ProblemMarkerContentGenerator">
+         <markerFieldReference
+               id="org.eclipse.ui.ide.creationTimeField"
+               visible="true">
+         </markerFieldReference>
+         <markerTypeReference
+               id="dk.dda.ddieditor.spss.stat.view.marker">
+         </markerTypeReference>
+         <markerFieldReference
+               id="dk.dda.ddieditor.spss.stat.view.StateMarkerField"
+               visible="true">
+         </markerFieldReference>
+         <markerFieldReference
+               id="dk.dda.ddieditor.spss.stat.view.TypeMarkerField"
+               visible="true">
+         </markerFieldReference>
+         <markerFieldReference
+               id="dk.dda.ddieditor.spss.stat.view.IdentifierMarkerField"
+               visible="true">
+         </markerFieldReference>
+         <markerFieldReference
+               id="org.eclipse.ui.ide.descriptionField"
+               visible="true">
+         </markerFieldReference>
+      </markerContentGenerator>
+      <markerField
+            class="dk.dda.ddieditor.spss.stat.view.StateMarkerField"
+            id="dk.dda.ddieditor.spss.stat.view.StateMarkerField"
+            name="State">
+      </markerField>
+      <markerField
+            class="dk.dda.ddieditor.spss.stat.view.TypeMarkerField"
+            id="dk.dda.ddieditor.spss.stat.view.TypeMarkerField"
+            name="Type">
+      </markerField>
+      <markerField
+            class="dk.dda.ddieditor.spss.stat.view.IdentifierMarkerField"
+            id="dk.dda.ddieditor.spss.stat.view.IdentifierMarkerField"
+            name="Identifier">
+      </markerField>
+   </extension>
+   <extension
+         id="dk.dda.ddieditor.spss.stat.view.marker"
+         name="spss.stat.marker"
+         point="org.eclipse.core.resources.markers">
+   </extension>
 </plugin>

@@ -203,21 +203,23 @@ public class SpssStatsWizard extends Wizard {
 			});
 
 			// SPSS metadata inconsistency check
-			Button inconsistencyButton = editor.createCheckBox(group, "", Translator
-					.trans("spssstat.option.ignoreinconsistency",
-							pathText.getText()));
-			inconsistencyButton.setSelection(false);
-			inconsistencyButton.addSelectionListener(new SelectionListener() {
-				@Override
-				public void widgetSelected(SelectionEvent e) {
-					ignoreInconsistency = ((Button) e.widget).getSelection();
-				}
-
-				@Override
-				public void widgetDefaultSelected(SelectionEvent e) {
-					// do nothing
-				}
-			});
+			// Button inconsistencyButton = editor.createCheckBox(group, "",
+			// Translator
+			// .trans("spssstat.option.ignoreinconsistency",
+			// pathText.getText()));
+			// inconsistencyButton.setSelection(false);
+			// inconsistencyButton.addSelectionListener(new SelectionListener()
+			// {
+			// @Override
+			// public void widgetSelected(SelectionEvent e) {
+			// ignoreInconsistency = ((Button) e.widget).getSelection();
+			// }
+			//
+			// @Override
+			// public void widgetDefaultSelected(SelectionEvent e) {
+			// // do nothing
+			// }
+			// });
 
 			// character set validation check
 			Button charValidationButton = editor.createCheckBox(group, "", Translator

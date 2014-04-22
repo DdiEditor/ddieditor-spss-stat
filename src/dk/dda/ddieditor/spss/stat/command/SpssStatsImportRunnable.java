@@ -5,31 +5,26 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.PrintStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Formatter;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.Charset;
-import java.nio.charset.CharsetDecoder;
-import java.nio.charset.CodingErrorAction;
 
 import javax.xml.parsers.SAXParserFactory;
 
 import org.apache.xmlbeans.XmlObject;
 import org.ddialliance.ddi3.xml.xmlbeans.logicalproduct.CodeSchemeDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.logicalproduct.CodeType;
-import org.ddialliance.ddi3.xml.xmlbeans.logicalproduct.VariableDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticDocument;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticType;
 import org.ddialliance.ddi3.xml.xmlbeans.physicalinstance.CategoryStatisticTypeCodedDocument;
@@ -60,10 +55,7 @@ import org.ddialliance.ddiftp.util.Translator;
 import org.ddialliance.ddiftp.util.log.Log;
 import org.ddialliance.ddiftp.util.log.LogFactory;
 import org.ddialliance.ddiftp.util.log.LogType;
-import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
-import org.xml.sax.SAXParseException;
 import org.xml.sax.XMLReader;
 
 import com.spss.xml.spss.oms.CategoryDocument;
@@ -72,6 +64,7 @@ import com.spss.xml.spss.oms.PivotTableDocument;
 
 import dk.dda.ddieditor.spss.stat.idelement.IdElement;
 import dk.dda.ddieditor.spss.stat.idelement.IdElementContentHandler;
+import dk.dda.ddieditor.spss.stat.util.Marker;
 import dk.dda.ddieditor.spss.stat.util.SpssStatsToDdiLStatsMap;
 
 /*
@@ -199,6 +192,7 @@ public class SpssStatsImportRunnable implements Runnable {
 		try {
 			PersistenceManager.getInstance().getPersistenceStorage()
 					.setReuseTransaction(false);
+			Marker.cleanMarkers();
 			importStats();
 			storeDdi();
 		} catch (Exception e) {
@@ -228,9 +222,9 @@ public class SpssStatsImportRunnable implements Runnable {
 				total += chars;
 			}
 		} catch (CharacterCodingException ex) {
-			throw new DDIFtpException("Decoding failed at byte " + total
-					+ " in file " + file.getPath() + ": " + ex.toString(),
-					new Throwable());
+			Marker.createMarker(false, "XML", file.getPath(), Translator.trans(
+					"spssstat.error.decoding.error", new Object[] { total }
+							+ ex.toString()));
 		} catch (IOException ex) {
 			throw new DDIFtpException("Failed to read file " + file.getPath()
 					+ ": " + ex.toString());
@@ -280,12 +274,14 @@ public class SpssStatsImportRunnable implements Runnable {
 
 		// freq pivot table
 		for (Entry<String, IdElement> entry : contentHandler.result.entrySet()) {
-			if (entry.getValue().getRepresentationType() == null) { // guard
-				throw new DDIFtpException(Translator.trans(
+			if (entry.getValue().getRepresentationType() == null) {
+				Marker.createMarker(false, "Variable", entry.getValue().getName() == null ? "''"
+										: entry.getValue().getName(), Translator.trans(
 						"spssstat.error.noreptypedef", new Object[] {
 								entry.getValue().getName() == null ? "''"
 										: entry.getValue().getName(),
-								entry.getValue().getId() }), new Throwable());
+								entry.getValue().getId() }));
+				return;
 			}
 
 			if (entry.getValue().getRepresentationType()
@@ -561,14 +557,10 @@ public class SpssStatsImportRunnable implements Runnable {
 
 			// check category value against codes
 			if (groupText.equals("-1") && codeMap.get(value) == null) {
-				// TODO report inconsistency via report
-				// view...........................................
-				if (!ignoreInconsistency) {
-					throw new DDIFtpException(Translator.trans(
-							"spssstat.error.mismatch.categoryvaluecode", entry
-									.getValue().getName(), value),
-							new Throwable());
-				}
+				Marker.createMarker(false, "Category", entry.getValue()
+						.getName(), Translator.trans(
+						"spssstat.error.mismatch.categoryvaluecode", entry
+								.getValue().getName(), value));
 			}
 
 			// check if all codes is present in spss statistics
