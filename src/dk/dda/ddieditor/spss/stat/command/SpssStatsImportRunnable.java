@@ -155,6 +155,7 @@ public class SpssStatsImportRunnable implements Runnable {
 		q.append(declareNamspaces);
 		q.append("declare function ddieditor:getPivotTable($doc as xs:string, $type as xs:string, $varname as xs:string) as element()* {");
 		q.append(" for $x in doc($doc)//oms:outputTree/oms:command/oms:heading/oms:pivotTable");
+		// q.append(" for $x in doc($doc)//oms:outputTree/oms:command/oms:pivotTable");
 		q.append(" where $x/@subType=$type and $x/@varName=$varname");
 		q.append(" return $x};");
 		omsFreqQueryFunction = q.toString();
@@ -275,12 +276,18 @@ public class SpssStatsImportRunnable implements Runnable {
 		// freq pivot table
 		for (Entry<String, IdElement> entry : contentHandler.result.entrySet()) {
 			if (entry.getValue().getRepresentationType() == null) {
-				Marker.createMarker(false, "Variable", entry.getValue().getName() == null ? "''"
-										: entry.getValue().getName(), Translator.trans(
-						"spssstat.error.noreptypedef", new Object[] {
-								entry.getValue().getName() == null ? "''"
-										: entry.getValue().getName(),
-								entry.getValue().getId() }));
+				Marker.createMarker(
+						false,
+						"Variable",
+						entry.getValue().getName() == null ? "''" : entry
+								.getValue().getName(),
+						Translator
+								.trans("spssstat.error.noreptypedef",
+										new Object[] {
+												entry.getValue().getName() == null ? "''"
+														: entry.getValue()
+																.getName(),
+												entry.getValue().getId() }));
 				return;
 			}
 
@@ -413,7 +420,6 @@ public class SpssStatsImportRunnable implements Runnable {
 
 	private void createCodeRepresentation(VariableStatisticsType varStatType,
 			Entry<String, IdElement> entry) throws Exception {
-
 		String spssPivotTableXml = getSpssFrequencyPivotTableByVariableName(entry
 				.getKey());
 		if (spssPivotTableXml.equals("")) {
@@ -490,7 +496,7 @@ public class SpssStatsImportRunnable implements Runnable {
 		String value = null;
 		for (int i = 0; i < codeScheme.getCodeScheme().getCodeList().size(); i++) {
 			value = codeScheme.getCodeScheme().getCodeList().get(i).getValue();
-			codeMap.put(value, value);
+			codeMap.put(value.trim(), value.trim());
 		}
 		return (codeMap);
 	}
@@ -542,18 +548,38 @@ public class SpssStatsImportRunnable implements Runnable {
 
 		// spss value labels
 		int iCode = 0;
+		boolean numeric = false;
 		for (int i = 0; i < spssTopCategories.length; i++) {
-			// weed out missing and missing total
+			// weed out missing total
 			if (spssTopCategories[i].getCategory().getText() != null
 					&& (spssTopCategories[i].getCategory().getText()
-							.equals("Total") || spssTopCategories[i]
-							.getCategory().getText().equals("System"))) {
+							.equals("Total"))) {
 				continue;
 			}
 
-			// category value
-			String value = numberFormat.format(spssTopCategories[i]
-					.getCategory().getNumber());
+			// category value - number or string expected
+			String value = null;
+			if (spssTopCategories[i].getCategory().getText() != null
+					&& (spssTopCategories[i].getCategory().getText()
+							.equals("System"))) {
+				value = "999"; // TODO define SYSMIS value
+			} else {
+				long decimals = spssTopCategories[i].getCategory()
+						.getDecimals();
+				if (decimals != 0) {
+					numberFormat.setMinimumFractionDigits((int) decimals);
+					numberFormat.setMaximumFractionDigits((int) decimals);
+				}
+				String string = spssTopCategories[i].getCategory().getString();
+				if (string != null && string.length() > 0) {
+					numeric = false;
+					value = string;
+				} else {
+					numeric = true;
+					value = numberFormat.format(spssTopCategories[i]
+							.getCategory().getNumber());
+				}
+			}
 
 			// check category value against codes
 			if (groupText.equals("-1") && codeMap.get(value) == null) {
@@ -561,15 +587,18 @@ public class SpssStatsImportRunnable implements Runnable {
 						.getName(), Translator.trans(
 						"spssstat.error.mismatch.categoryvaluecode", entry
 								.getValue().getName(), value));
+				continue;
 			}
 
-			// check if all codes is present in spss statistics
-			while (groupText.equals("-1") && iCode < codes.size()
-					&& !value.equals(codes.get(iCode).getValue())) {
-				// Difference in code list insert zero category statistics
-				addZeroCategoryStatistics(varStatType, codes.get(iCode)
-						.getValue());
-				iCode++;
+			if (numeric) {
+				// check if all codes is present in spss statistics
+				while (groupText.equals("-1") && iCode < codes.size()
+						&& !value.equals(codes.get(iCode).getValue())) {
+					// Difference in code list insert zero category statistics
+					addZeroCategoryStatistics(varStatType, codes.get(iCode)
+							.getValue());
+					iCode++;
+				}
 			}
 			// change to CategoryValue and keep in seperate list
 			CategoryStatisticsType catStatType = varStatType
@@ -670,11 +699,14 @@ public class SpssStatsImportRunnable implements Runnable {
 			}
 			iCode++;
 		}
-		while (groupText.equals("-1") && iCode < codes.size()) {
-			// add insert zero category statistics for trailing unused
-			// responses
-			addZeroCategoryStatistics(varStatType, codes.get(iCode).getValue());
-			iCode++;
+		if (numeric) {
+			while (groupText.equals("-1") && iCode < codes.size()) {
+				// add insert zero category statistics for trailing unused
+				// responses
+				addZeroCategoryStatistics(varStatType, codes.get(iCode)
+						.getValue());
+				iCode++;
+			}
 		}
 	}
 
