@@ -562,7 +562,7 @@ public class SpssStatsImportRunnable implements Runnable {
 			if (spssTopCategories[i].getCategory().getText() != null
 					&& (spssTopCategories[i].getCategory().getText()
 							.equals("System"))) {
-				value = "999"; // TODO define SYSMIS value
+				value = ".";
 			} else {
 				long decimals = spssTopCategories[i].getCategory()
 						.getDecimals();
