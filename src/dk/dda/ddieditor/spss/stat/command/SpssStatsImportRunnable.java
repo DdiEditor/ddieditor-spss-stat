@@ -587,7 +587,6 @@ public class SpssStatsImportRunnable implements Runnable {
 						.getName(), Translator.trans(
 						"spssstat.error.mismatch.categoryvaluecode", entry
 								.getValue().getName(), value));
-				continue;
 			}
 
 			if (numeric) {
