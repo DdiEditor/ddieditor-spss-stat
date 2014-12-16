@@ -566,10 +566,8 @@ public class SpssStatsImportRunnable implements Runnable {
 			} else {
 				long decimals = spssTopCategories[i].getCategory()
 						.getDecimals();
-				if (decimals != 0) {
-					numberFormat.setMinimumFractionDigits((int) decimals);
-					numberFormat.setMaximumFractionDigits((int) decimals);
-				}
+				numberFormat.setMinimumFractionDigits((int) decimals);
+				numberFormat.setMaximumFractionDigits((int) decimals);
 				String string = spssTopCategories[i].getCategory().getString();
 				if (string != null && string.length() > 0) {
 					numeric = false;
